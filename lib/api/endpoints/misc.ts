@@ -43,10 +43,10 @@ export const messagingApi = {
 
 export const balanceApi = {
   getCurrent: () =>
-    apiCall<ApiResponse<{ balance: number }>>('GET', '/get_current_balance'),
+    apiCall<ApiResponse<{ balance: number }>>('POST', '/get_current_balance'),
 
   getHistory: (params?: { page?: number; limit?: number }) =>
-    apiCall<ApiResponse<PaginatedResponse<BalanceTransaction>>>('GET', '/get_balance_history', undefined, params as Record<string, unknown>),
+    apiCall<ApiResponse<PaginatedResponse<BalanceTransaction>>>('POST', '/get_balance_history', undefined, params as Record<string, unknown>),
 
   createWithdrawRequest: (body: { amount: number; note?: string }) =>
     apiCall<ApiResponse<WithdrawRequest>>('POST', '/create_withdraw_request', body),
