@@ -24,7 +24,7 @@ export default function Index() {
     return <Redirect href={"/(auth)/welcome" as Href} />;
   }
 
-  if (user?.rank === 'officer' || user?.rank === 'admin') {
+  if (user?.rank === 'officer' || user?.rank === 'admin' || user?.rank === 'Sĩ quan') {
     return <Redirect href={"/(main)/officer" as Href} />;
   }
 

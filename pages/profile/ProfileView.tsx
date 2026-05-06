@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, Alert } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
@@ -6,11 +6,39 @@ import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { useRouter, Href } from 'expo-router';
+import { db } from '../../lib/storage/sqlite';
 
 export function ProfileView() {
   const user = useAuthStore(state => state.user);
+  const updateUser = useAuthStore(state => state.updateUser);
   const logout = useAuthStore(state => state.logout);
   const router = useRouter();
+
+  const [posts, setPosts] = useState<any[]>([]);
+  const [balance, setBalance] = useState(user?.virtual_balance || 0);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadUserData();
+    }
+  }, [user?.id]);
+
+  const loadUserData = () => {
+    try {
+      // Sync latest balance
+      const u = db.getFirstSync<any>('SELECT virtual_balance FROM Users WHERE id = ?', [user!.id]);
+      if (u) {
+        setBalance(u.virtual_balance);
+        updateUser({ virtual_balance: u.virtual_balance });
+      }
+
+      // Load user's posts (chiến tích)
+      const userPosts = db.getAllSync<any>('SELECT * FROM Posts WHERE author_id = ? ORDER BY created_at DESC', [user!.id]);
+      setPosts(userPosts);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert('Đăng xuất', 'Bạn có chắc chắn muốn đăng xuất?', [
@@ -60,14 +88,41 @@ export function ProfileView() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>Bài viết</Text>
+            <Text style={styles.statNumber}>{posts.length}</Text>
+            <Text style={styles.statLabel}>Chiến tích</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{user?.virtual_balance?.toLocaleString('vi-VN') || 0}</Text>
+            <Text style={[styles.statNumber, { color: UI_CONFIG.colors.primary }]}>
+              {balance.toLocaleString('vi-VN')}
+            </Text>
             <Text style={styles.statLabel}>Điểm thưởng</Text>
           </View>
+        </View>
+
+        {/* Lịch sử chiến tích */}
+        <View style={styles.menuContainer}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.menuSectionTitle}>Chiến tích của tôi</Text>
+            <TouchableOpacity onPress={loadUserData}><IconSymbol name="arrow.triangle.2.circlepath" size={20} color={UI_CONFIG.colors.primary} /></TouchableOpacity>
+          </View>
+          
+          {posts.length === 0 ? (
+            <Text style={{ padding: UI_CONFIG.spacing.md, color: UI_CONFIG.colors.textSecondary }}>Chưa có chiến tích nào.</Text>
+          ) : (
+            posts.map(post => (
+              <View key={post.id} style={styles.postItem}>
+                <Image source={{ uri: post.media_url }} style={styles.postMedia} />
+                <View style={styles.postInfo}>
+                  <Text style={styles.postTitle}>{post.title}</Text>
+                  <Text style={styles.postStatus}>
+                    Trạng thái: {post.status === 'pending' ? '⏳ Đang chờ' : post.status === 'approved' ? '✅ Đã duyệt' : '❌ Bị từ chối'}
+                  </Text>
+                  <Text style={styles.postDate}>{new Date(post.created_at).toLocaleDateString('vi-VN')}</Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
 
         {/* Menu list */}
@@ -79,7 +134,6 @@ export function ProfileView() {
           <Text style={styles.menuSectionTitle}>Tài khoản</Text>
           {renderMenuItem('person', 'Thông tin cá nhân', () => {})}
           {renderMenuItem('shield', 'Đổi mật khẩu', () => {})}
-          {renderMenuItem('map', 'Địa chỉ nhận hàng', () => {})}
         </View>
 
         {/* Logout Button */}
@@ -93,105 +147,30 @@ export function ProfileView() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingBottom: UI_CONFIG.spacing.xl,
-    backgroundColor: '#F5F5F5',
-  },
-  profileHeader: {
-    flexDirection: 'row',
-    padding: UI_CONFIG.spacing.lg,
-    backgroundColor: UI_CONFIG.colors.background,
-    alignItems: 'center',
-    marginBottom: UI_CONFIG.spacing.sm,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginRight: UI_CONFIG.spacing.md,
-  },
-  userInfo: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: UI_CONFIG.typography.sizes.xl,
-    fontWeight: 'bold',
-    color: UI_CONFIG.colors.text,
-    marginBottom: 4,
-  },
-  userRole: {
-    fontSize: UI_CONFIG.typography.sizes.md,
-    color: UI_CONFIG.colors.primary,
-    fontWeight: '500',
-  },
-  userUnit: {
-    fontSize: UI_CONFIG.typography.sizes.sm,
-    color: UI_CONFIG.colors.textSecondary,
-    marginTop: 2,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    backgroundColor: UI_CONFIG.colors.background,
-    paddingVertical: UI_CONFIG.spacing.md,
-    marginBottom: UI_CONFIG.spacing.sm,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: UI_CONFIG.colors.border,
-  },
-  statNumber: {
-    fontSize: UI_CONFIG.typography.sizes.lg,
-    fontWeight: 'bold',
-    color: UI_CONFIG.colors.text,
-  },
-  statLabel: {
-    fontSize: UI_CONFIG.typography.sizes.sm,
-    color: UI_CONFIG.colors.textSecondary,
-    marginTop: 4,
-  },
-  menuContainer: {
-    backgroundColor: UI_CONFIG.colors.background,
-    paddingVertical: UI_CONFIG.spacing.sm,
-    marginBottom: UI_CONFIG.spacing.lg,
-  },
-  menuSectionTitle: {
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: 'bold',
-    color: UI_CONFIG.colors.textSecondary,
-    paddingHorizontal: UI_CONFIG.spacing.md,
-    marginTop: UI_CONFIG.spacing.md,
-    marginBottom: UI_CONFIG.spacing.sm,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: UI_CONFIG.spacing.md,
-    paddingHorizontal: UI_CONFIG.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  menuItemText: {
-    flex: 1,
-    fontSize: UI_CONFIG.typography.sizes.md,
-    color: UI_CONFIG.colors.text,
-    marginLeft: UI_CONFIG.spacing.md,
-  },
-  logoutButton: {
-    marginHorizontal: UI_CONFIG.spacing.md,
-    backgroundColor: UI_CONFIG.colors.background,
-    padding: UI_CONFIG.spacing.md,
-    borderRadius: UI_CONFIG.borderRadius.md,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: UI_CONFIG.colors.danger,
-  },
-  logoutText: {
-    color: UI_CONFIG.colors.danger,
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: 'bold',
-  }
+  container: { paddingBottom: UI_CONFIG.spacing.xl, backgroundColor: '#F5F5F5' },
+  profileHeader: { flexDirection: 'row', padding: UI_CONFIG.spacing.lg, backgroundColor: UI_CONFIG.colors.background, alignItems: 'center', marginBottom: UI_CONFIG.spacing.sm },
+  avatar: { width: 80, height: 80, borderRadius: 40, marginRight: UI_CONFIG.spacing.md },
+  userInfo: { flex: 1 },
+  userName: { fontSize: UI_CONFIG.typography.sizes.xl, fontWeight: 'bold', color: UI_CONFIG.colors.text, marginBottom: 4 },
+  userRole: { fontSize: UI_CONFIG.typography.sizes.md, color: UI_CONFIG.colors.primary, fontWeight: '500' },
+  userUnit: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 2 },
+  statsContainer: { flexDirection: 'row', backgroundColor: UI_CONFIG.colors.background, paddingVertical: UI_CONFIG.spacing.md, marginBottom: UI_CONFIG.spacing.sm },
+  statItem: { flex: 1, alignItems: 'center' },
+  statDivider: { width: 1, backgroundColor: UI_CONFIG.colors.border },
+  statNumber: { fontSize: UI_CONFIG.typography.sizes.lg, fontWeight: 'bold', color: UI_CONFIG.colors.text },
+  statLabel: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 4 },
+  menuContainer: { backgroundColor: UI_CONFIG.colors.background, paddingVertical: UI_CONFIG.spacing.sm, marginBottom: UI_CONFIG.spacing.lg },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: UI_CONFIG.spacing.md },
+  menuSectionTitle: { fontSize: UI_CONFIG.typography.sizes.md, fontWeight: 'bold', color: UI_CONFIG.colors.textSecondary, paddingHorizontal: UI_CONFIG.spacing.md, marginTop: UI_CONFIG.spacing.md, marginBottom: UI_CONFIG.spacing.sm },
+  menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: UI_CONFIG.spacing.md, paddingHorizontal: UI_CONFIG.spacing.md, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  menuItemText: { flex: 1, fontSize: UI_CONFIG.typography.sizes.md, color: UI_CONFIG.colors.text, marginLeft: UI_CONFIG.spacing.md },
+  logoutButton: { marginHorizontal: UI_CONFIG.spacing.md, backgroundColor: UI_CONFIG.colors.background, padding: UI_CONFIG.spacing.md, borderRadius: UI_CONFIG.borderRadius.md, alignItems: 'center', borderWidth: 1, borderColor: UI_CONFIG.colors.danger },
+  logoutText: { color: UI_CONFIG.colors.danger, fontSize: UI_CONFIG.typography.sizes.md, fontWeight: 'bold' },
+  
+  postItem: { flexDirection: 'row', padding: UI_CONFIG.spacing.md, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  postMedia: { width: 60, height: 60, borderRadius: 8, marginRight: UI_CONFIG.spacing.md, backgroundColor: '#ddd' },
+  postInfo: { flex: 1, justifyContent: 'center' },
+  postTitle: { fontWeight: 'bold', fontSize: UI_CONFIG.typography.sizes.md, marginBottom: 4 },
+  postStatus: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginBottom: 2 },
+  postDate: { fontSize: UI_CONFIG.typography.sizes.xs, color: UI_CONFIG.colors.textSecondary }
 });

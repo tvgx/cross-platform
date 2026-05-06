@@ -36,6 +36,13 @@ export default function MainDrawerLayout() {
             drawerLabel: 'Product Detail',
           }}
         />
+        <Drawer.Screen
+          name="officer"
+          options={{
+            drawerLabel: 'Officer Dashboard',
+            drawerItemStyle: { display: 'none' }, // hide from drawer menu
+          }}
+        />
       </Drawer>
     </GestureHandlerRootView>
   );
