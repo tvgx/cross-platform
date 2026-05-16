@@ -77,23 +77,33 @@ export default function DetailScreen() {
 
   const handleToggleLike = () => {
     if (product) {
-      const newLikedState = !product.is_liked;
-      const newLikeCount = newLikedState ? product.like_count + 1 : product.like_count - 1;
-      db.runSync('UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?', [newLikedState ? 1 : 0, newLikeCount, product.id]);
-      setProduct({ ...product, is_liked: newLikedState, like_count: newLikeCount });
+      try {
+        const newLikedState = !product.is_liked;
+        const newLikeCount = newLikedState ? product.like_count + 1 : product.like_count - 1;
+        db.runSync('UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?', [newLikedState ? 1 : 0, newLikeCount, product.id]);
+        setProduct({ ...product, is_liked: newLikedState, like_count: newLikeCount });
+      } catch (err) {
+        console.error('Error toggling like:', err);
+        Alert.alert('Lỗi', 'Không thể cập nhật trạng thái thích');
+      }
     }
   };
 
   const handleAddComment = () => {
     if (!newComment.trim() || !user || !product) return;
-    const commentId = `cmt_${Date.now()}`;
-    const now = new Date().toISOString();
-    db.runSync(
-      'INSERT INTO Comments (id, target_id, user_id, user_name, content, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [commentId, product.id, user.id, user.full_name || user.username, newComment, now]
-    );
-    setNewComment('');
-    loadComments();
+    try {
+      const commentId = `cmt_${Date.now()}`;
+      const now = new Date().toISOString();
+      db.runSync(
+        'INSERT INTO Comments (id, target_id, user_id, user_name, content, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [commentId, product.id, user.id, user.full_name || user.username, newComment, now]
+      );
+      setNewComment('');
+      loadComments();
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      Alert.alert('Lỗi', 'Không thể thêm bình luận');
+    }
   };
 
   if (!product) {

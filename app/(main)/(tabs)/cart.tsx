@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Image, Animated } from 'react-native';
 import { SafeArea } from '../../../components/layout/SafeArea';
 import { Header } from '../../../components/navigation/Header';
 import { UI_CONFIG } from '../../../constants/config';
 import { useNavigation, useRouter } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
 import { useCartStore } from '../../../store/cart';
-import { Button } from '../../../components/ui/Button';
+import { TacticalButton } from '../../../components/ui/TacticalButton';
 import { useAuthStore } from '../../../store/auth';
 import { db } from '../../../lib/storage/sqlite';
 
@@ -24,60 +24,95 @@ export default function CartScreen() {
   
   const [balance, setBalance] = useState(user?.virtual_balance || 0);
 
-  // Sync latest balance from DB when viewing cart
   useEffect(() => {
     if (user?.id) {
-      const u = db.getFirstSync<any>('SELECT virtual_balance FROM Users WHERE id = ?', [user.id]);
-      if (u) {
-        setBalance(u.virtual_balance);
-        updateUser({ virtual_balance: u.virtual_balance });
+      try {
+        const u = db.getFirstSync<any>('SELECT virtual_balance FROM Users WHERE id = ?', [user.id]);
+        if (u) {
+          setBalance(u.virtual_balance);
+          updateUser({ virtual_balance: u.virtual_balance });
+        }
+      } catch (err) {
+        console.error('Error syncing balance in Cart:', err);
       }
     }
   }, [user?.id]);
 
   const handleCheckout = () => {
     if (!user) {
-      Alert.alert('Lỗi', 'Vui lòng đăng nhập để thanh toán');
+      Alert.alert('TRUY CẬP BỊ TỪ CHỐI', 'Vui lòng xác thực danh tính để thanh toán.');
       return;
     }
     
     if (items.length === 0) {
-      Alert.alert('Lỗi', 'Giỏ hàng trống');
+      Alert.alert('GIỎ HÀNG TRỐNG', 'Lệnh mua hàng không có nội dung.');
       return;
     }
 
     if (balance < total) {
-      Alert.alert('Lỗi', 'Số dư Tiền ảo không đủ. Hãy đăng tải thêm chiến tích để nhận thêm Tiền ảo.');
+      Alert.alert('SỐ DƯ KHÔNG ĐỦ', 'Ngân sách virtual không đủ. Hãy gửi thêm chứng minh chiến tích (PoCA) để nhận thêm quân nhu.');
       return;
     }
 
+    Alert.alert(
+      'XÁC NHẬN LỆNH MUA',
+      `Bạn đang thực hiện lệnh mua với tổng giá trị ${total.toLocaleString('vi-VN')} Xu. Lệnh này sẽ được gửi tới Bộ Quốc Phòng.`,
+      [
+        { text: 'HỦY', style: 'cancel' },
+        { text: 'XÁC NHẬN (CONFIRM)', onPress: processCheckout }
+      ]
+    );
+  };
+
+  const processCheckout = () => {
+    if (!user) return;
     try {
       const newBalance = balance - total;
-      
-      // Begin transaction manually if supported, but simple statements are fine here
-      db.runSync('UPDATE Users SET virtual_balance = ? WHERE id = ?', [newBalance, user.id]);
+      const now = new Date().toISOString();
+      const orderId = `ORD_${Date.now()}`;
 
-      // Create Orders
-      const orderId = `ord_${Date.now()}`;
+      // Database Transaction Logic from .agents/marketplace_logic.md
+      db.execSync('BEGIN TRANSACTION;');
       
-      for (const item of items) {
-        db.runSync(
-          'INSERT INTO Orders (id, product_id, quantity, total_price, buyer_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [`${orderId}_${item.product_id}`, item.product_id, item.quantity, item.price * item.quantity, user.id, 'pending_sync', new Date().toISOString()]
-        );
+      try {
+        // 1. Deduct Balance
+        db.runSync('UPDATE Users SET virtual_balance = ? WHERE id = ?', [newBalance, user.id]);
+
+        // 2. Create Orders & SyncQueue entries
+        for (const item of items) {
+          const subOrderId = `${orderId}_${item.product_id}`;
+          db.runSync(
+            'INSERT INTO Orders (id, product_id, quantity, total_price, buyer_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [subOrderId, item.product_id, item.quantity, item.price * item.quantity, user.id, 'pending_sync', now]
+          );
+          
+          db.runSync(
+            'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+            [`SQ_${subOrderId}`, 'ORDER_UPLOAD', subOrderId, JSON.stringify(item), now]
+          );
+        }
+
+        db.execSync('COMMIT;');
+        
+        // 3. Update Local State
+        setBalance(newBalance);
+        updateUser({ virtual_balance: newBalance });
+        clearCart();
+        
+        // 4. Success Navigation
+        router.replace({
+          pathname: '/(main)/order-success',
+          params: { orderId }
+        });
+
+      } catch (innerErr) {
+        db.execSync('ROLLBACK;');
+        throw innerErr;
       }
-
-      setBalance(newBalance);
-      updateUser({ virtual_balance: newBalance });
-      clearCart();
-      
-      Alert.alert('Thành công', 'Đơn hàng đã được thanh toán và đang được vận chuyển ra tiền tuyến.', [
-        { text: 'OK', onPress: () => router.replace('/(main)/(tabs)') }
-      ]);
       
     } catch (err) {
       console.error(err);
-      Alert.alert('Lỗi', 'Có lỗi xảy ra khi thanh toán');
+      Alert.alert('LỖI HỆ THỐNG', 'Không thể khởi tạo lệnh mua hàng. Vui lòng thử lại sau.');
     }
   };
 
@@ -86,32 +121,28 @@ export default function CartScreen() {
       <Header 
         leftIcon="menu" 
         onPressLeft={() => navigation.dispatch(DrawerActions.openDrawer())} 
-        title="Giỏ hàng"
+        title="Quân Nhu / Giỏ Hàng"
+        rightIcon="notifications"
       />
       
       {items.length === 0 ? (
         <View style={styles.center}>
-          <Text style={styles.emptyText}>Giỏ hàng của bạn đang trống</Text>
+          <Text style={styles.emptyText}>KHÔNG CÓ LỆNH MUA NÀO ĐANG CHỜ</Text>
         </View>
       ) : (
         <>
           <ScrollView contentContainerStyle={styles.container}>
             {items.map(item => (
-              <View key={item.id} style={styles.cartItem}>
-                {item.image ? (
-                  <Image source={{ uri: item.image }} style={styles.itemImage} />
-                ) : (
-                  <View style={styles.imagePlaceholder} />
-                )}
-                
+              <View key={item.product_id} style={styles.cartItem}>
+                <Image source={{ uri: item.image }} style={styles.itemImage} />
                 <View style={styles.itemInfo}>
-                  <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
-                  <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} ₫</Text>
+                  <Text style={styles.itemTitle}>{item.title.toUpperCase()}</Text>
+                  <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} XU</Text>
                   
                   <View style={styles.quantityRow}>
-                    <Button text="-" onPress={() => updateQuantity(item.id, item.quantity - 1)} style={styles.qtyBtn} />
+                    <TacticalButton variant="outline" text="-" size="sm" onPress={() => updateQuantity(item.product_id, item.quantity - 1)} />
                     <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <Button text="+" onPress={() => updateQuantity(item.id, item.quantity + 1)} style={styles.qtyBtn} />
+                    <TacticalButton variant="outline" text="+" size="sm" onPress={() => updateQuantity(item.product_id, item.quantity + 1)} />
                   </View>
                 </View>
               </View>
@@ -119,23 +150,27 @@ export default function CartScreen() {
           </ScrollView>
 
           <View style={styles.footer}>
-            <View style={styles.balanceRow}>
-              <Text style={styles.balanceLabel}>Số dư Tiền ảo:</Text>
-              <Text style={styles.balanceValue}>{balance.toLocaleString('vi-VN')} ₫</Text>
-            </View>
-            
-            <View style={styles.balanceRow}>
-              <Text style={styles.balanceLabel}>Tổng cộng:</Text>
-              <Text style={[styles.balanceValue, { color: UI_CONFIG.colors.primary }]}>
-                {total.toLocaleString('vi-VN')} ₫
-              </Text>
-            </View>
+            <View style={styles.glassContainer}>
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceLabel}>NGÂN SÁCH HIỆN TẠI:</Text>
+                <Text style={styles.balanceValue}>{balance.toLocaleString('vi-VN')} XU</Text>
+              </View>
+              
+              <View style={styles.balanceRow}>
+                <Text style={styles.balanceLabel}>TỔNG CHI PHÍ:</Text>
+                <Text style={[styles.balanceValue, { color: UI_CONFIG.colors.primary }]}>
+                  {total.toLocaleString('vi-VN')} XU
+                </Text>
+              </View>
 
-            <Button 
-              text="Thanh toán ngay" 
-              onPress={handleCheckout} 
-              style={styles.checkoutBtn}
-            />
+              <TacticalButton 
+                text="XÁC NHẬN THANH TOÁN" 
+                onPress={handleCheckout} 
+                fullWidth
+                size="lg"
+                style={styles.checkoutBtn}
+              />
+            </View>
           </View>
         </>
       )}
@@ -154,80 +189,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: UI_CONFIG.typography.sizes.lg,
+    fontSize: 14,
     color: UI_CONFIG.colors.textSecondary,
+    letterSpacing: 2,
+    fontWeight: '900',
   },
   cartItem: {
     flexDirection: 'row',
-    backgroundColor: UI_CONFIG.colors.white,
+    backgroundColor: UI_CONFIG.colors.light,
     padding: UI_CONFIG.spacing.sm,
-    borderRadius: UI_CONFIG.borderRadius.md,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: UI_CONFIG.colors.border,
   },
   itemImage: {
-    width: 80,
-    height: 80,
-    borderRadius: UI_CONFIG.borderRadius.sm,
-    marginRight: UI_CONFIG.spacing.md,
-  },
-  imagePlaceholder: {
-    width: 80,
-    height: 80,
-    backgroundColor: UI_CONFIG.colors.light,
-    borderRadius: UI_CONFIG.borderRadius.sm,
-    marginRight: UI_CONFIG.spacing.md,
+    width: 90,
+    height: 90,
+    borderRadius: 2,
+    backgroundColor: '#000',
   },
   itemInfo: {
     flex: 1,
+    marginLeft: UI_CONFIG.spacing.md,
     justifyContent: 'space-between',
   },
   itemTitle: {
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '900',
+    color: UI_CONFIG.colors.text,
+    letterSpacing: 1,
   },
   itemPrice: {
     color: UI_CONFIG.colors.primary,
-    fontWeight: 'bold',
+    fontWeight: '900',
+    fontSize: 16,
   },
   quantityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: UI_CONFIG.spacing.xs,
-  },
-  qtyBtn: {
-    width: 32,
-    height: 32,
-    padding: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   qtyText: {
-    marginHorizontal: UI_CONFIG.spacing.md,
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: 'bold',
+    marginHorizontal: 15,
+    fontSize: 16,
+    fontWeight: '900',
+    color: UI_CONFIG.colors.text,
   },
   footer: {
+    padding: UI_CONFIG.spacing.md,
+    backgroundColor: UI_CONFIG.colors.dark,
+  },
+  glassContainer: {
     padding: UI_CONFIG.spacing.lg,
-    backgroundColor: UI_CONFIG.colors.white,
-    borderTopWidth: 1,
-    borderTopColor: UI_CONFIG.colors.border,
+    backgroundColor: UI_CONFIG.colors.light,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   balanceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: UI_CONFIG.spacing.sm,
+    marginBottom: 10,
   },
   balanceLabel: {
-    fontSize: UI_CONFIG.typography.sizes.md,
+    fontSize: 12,
     color: UI_CONFIG.colors.textSecondary,
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   balanceValue: {
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '900',
+    color: UI_CONFIG.colors.text,
   },
   checkoutBtn: {
-    marginTop: UI_CONFIG.spacing.md,
+    marginTop: 10,
   }
 });

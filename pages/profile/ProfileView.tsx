@@ -24,19 +24,20 @@ export function ProfileView() {
   }, [user?.id]);
 
   const loadUserData = () => {
+    if (!user?.id) return;
     try {
       // Sync latest balance
-      const u = db.getFirstSync<any>('SELECT virtual_balance FROM Users WHERE id = ?', [user!.id]);
+      const u = db.getFirstSync<any>('SELECT virtual_balance FROM Users WHERE id = ?', [user.id]);
       if (u) {
         setBalance(u.virtual_balance);
         updateUser({ virtual_balance: u.virtual_balance });
       }
 
       // Load user's posts (chiến tích)
-      const userPosts = db.getAllSync<any>('SELECT * FROM Posts WHERE author_id = ? ORDER BY created_at DESC', [user!.id]);
+      const userPosts = db.getAllSync<any>('SELECT * FROM Posts WHERE author_id = ? ORDER BY created_at DESC', [user.id]);
       setPosts(userPosts);
     } catch (err) {
-      console.error(err);
+      console.error('Error loading user data in Profile:', err);
     }
   };
 

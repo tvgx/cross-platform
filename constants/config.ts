@@ -1,19 +1,21 @@
 export const UI_CONFIG = {
   colors: {
-    primary: '#007AFF', // Blue
-    secondary: '#5856D6', // Purple
-    success: '#34C759', // Green
-    danger: '#FF3B30', // Red
-    warning: '#FF9500', // Orange
-    info: '#5AC8FA', // Light Blue
-    light: '#F2F2F7', // Light Gray
-    dark: '#1C1C1E', // Dark Gray
+    primary: '#2E7D32', // Tactical Green
+    secondary: '#1B5E20', // Darker Green
+    accent: '#EF6C00', // Alert Orange
+    success: '#34C759', 
+    danger: '#B71C1C', // Military Red
+    warning: '#F57F17',
+    info: '#0277BD',
+    light: '#262626', // Dark Surface
+    dark: '#0A0A0A', // Tactical Black
     white: '#FFFFFF',
     black: '#000000',
-    background: '#FFFFFF',
-    text: '#000000',
-    textSecondary: '#8E8E93',
-    border: '#E5E5EA',
+    background: '#0A0A0A',
+    text: '#FFFFFF',
+    textSecondary: '#B0B0B0',
+    border: '#333333',
+    glass: 'rgba(255, 255, 255, 0.05)',
   },
   spacing: {
     xs: 4,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UI_CONFIG } from '../../constants/config';
 
@@ -36,7 +36,7 @@ export const Toast = ({
     }, duration);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [duration, fadeAnim, onHide]);
 
   const getBackgroundColor = () => {
     switch (type) {

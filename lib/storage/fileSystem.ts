@@ -4,9 +4,15 @@ import {
   makeDirectoryAsync,
   copyAsync,
   downloadAsync,
-} from 'expo-file-system';
+  deleteAsync,
+} from 'expo-file-system/legacy';
 
-// Ensure directories exist
+const CACHE_FOLDER = `${documentDirectory}cache/`;
+const UPLOADS_FOLDER = `${documentDirectory}uploads/`;
+
+/**
+ * Đảm bảo thư mục tồn tại
+ */
 export const ensureDirExists = async (dirPath: string) => {
   const dir = await getInfoAsync(dirPath);
   if (!dir.exists) {
@@ -15,48 +21,56 @@ export const ensureDirExists = async (dirPath: string) => {
 };
 
 /**
- * Copies a local file URI (e.g., from image picker) to the persistent documents directory
- * @param sourceUri The temporary file URI
- * @param folder 'uploads' or 'downloads'
- * @returns The permanent local URI
+ * Lưu file vào cache cục bộ (Dành cho Media chiến tích)
+ * @param sourceUri URI tạm thời (từ ImagePicker)
+ * @returns URI cục bộ bền vững
  */
-export const saveFileToLocal = async (sourceUri: string, folder: string = 'uploads'): Promise<string> => {
-  if (!documentDirectory) {
-    throw new Error('documentDirectory is null — not supported on this platform');
-  }
-  const folderUri = documentDirectory + folder + '/';
-  await ensureDirExists(folderUri);
-
-  const filename = sourceUri.split('/').pop() || `file_${Date.now()}`;
-  const destUri = folderUri + filename;
+export const cacheMedia = async (sourceUri: string): Promise<string> => {
+  await ensureDirExists(CACHE_FOLDER);
+  
+  const ext = sourceUri.split('.').pop();
+  const filename = `POCA_${Date.now()}.${ext}`;
+  const destUri = CACHE_FOLDER + filename;
 
   await copyAsync({ from: sourceUri, to: destUri });
-
   return destUri;
 };
 
 /**
- * Downloads a file from a remote URL to the persistent documents directory
- * @param url The remote URL
- * @param folder 'downloads'
- * @returns The permanent local URI
+ * Xóa file khỏi cache
+ * CHỈ gọi hàm này sau khi sync_status === 'synced'
  */
-export const downloadFileToLocal = async (url: string, folder: string = 'downloads'): Promise<string> => {
-  if (!documentDirectory) {
-    throw new Error('documentDirectory is null — not supported on this platform');
+export const clearFileCache = async (fileUri: string) => {
+  try {
+    const info = await getInfoAsync(fileUri);
+    if (info.exists) {
+      await deleteAsync(fileUri);
+      console.log(`[Cache] Đã xóa file: ${fileUri}`);
+    }
+  } catch (err) {
+    console.error(`[Cache] Lỗi khi xóa file: ${fileUri}`, err);
   }
-  const folderUri = documentDirectory + folder + '/';
-  await ensureDirExists(folderUri);
+};
 
+/**
+ * Các hàm cũ được giữ lại để tương thích ngược (Legacy)
+ */
+export const saveFileToLocal = async (sourceUri: string, folder: string = 'uploads'): Promise<string> => {
+  const folderUri = `${documentDirectory}${folder}/`;
+  await ensureDirExists(folderUri);
+  const filename = sourceUri.split('/').pop() || `file_${Date.now()}`;
+  const destUri = folderUri + filename;
+  await copyAsync({ from: sourceUri, to: destUri });
+  return destUri;
+};
+
+export const downloadFileToLocal = async (url: string, folder: string = 'downloads'): Promise<string> => {
+  const folderUri = `${documentDirectory}${folder}/`;
+  await ensureDirExists(folderUri);
   const filename = url.split('/').pop()?.split('?')[0] || `file_${Date.now()}`;
   const destUri = folderUri + filename;
-
-  // Return cached file if it already exists
   const fileInfo = await getInfoAsync(destUri);
-  if (fileInfo.exists) {
-    return destUri;
-  }
-
+  if (fileInfo.exists) return destUri;
   const result = await downloadAsync(url, destUri);
   return result.uri;
 };

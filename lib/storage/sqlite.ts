@@ -49,7 +49,21 @@ export const initDB = () => {
         media_url TEXT, -- local file URI
         author_id TEXT,
         status TEXT, -- 'pending', 'approved', 'rejected'
+        sync_status TEXT DEFAULT 'pending_sync', -- 'pending_sync', 'synced'
         ai_score INTEGER,
+        created_at TEXT
+      );
+    `);
+
+    // Create SyncQueue table
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS SyncQueue (
+        id TEXT PRIMARY KEY,
+        action TEXT, -- 'ORDER_UPLOAD', 'MEDIA_UPLOAD'
+        target_id TEXT,
+        payload TEXT, -- JSON string
+        priority INTEGER DEFAULT 0,
+        retry_count INTEGER DEFAULT 0,
         created_at TEXT
       );
     `);

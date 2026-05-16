@@ -38,53 +38,53 @@ export function HomeView() {
   );
 
   return (
-    <SafeArea edges={['top']}>
+    <SafeArea edges={['top']} style={{ flex: 1 }}>
       <CustomAppBar title="Army+ E-commerce" />
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {/* Hero Banner */}
-        <View style={styles.heroContainer}>
-          <Image 
-            source={{ uri: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800' }} 
-            style={styles.heroImage} 
-          />
-          <View style={styles.heroOverlay}>
-            <Text style={styles.heroTitle}>Giảm Giá Mùa Hè</Text>
-            <Text style={styles.heroSubtitle}>Lên đến 50% cho Quân tư trang</Text>
-          </View>
-        </View>
+      <FlatList
+        data={products}
+        keyExtractor={item => item.id}
+        renderItem={renderProduct}
+        numColumns={Platform.OS === 'web' ? 4 : 2}
+        key={Platform.OS === 'web' ? 'web' : 'mobile'} // Force re-render on platform change
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.container}
+        columnWrapperStyle={styles.productRow}
+        ListHeaderComponent={
+          <>
+            {/* Hero Banner */}
+            <View style={styles.heroContainer}>
+              <Image 
+                source={{ uri: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800' }} 
+                style={styles.heroImage} 
+              />
+              <View style={styles.heroOverlay}>
+                <Text style={styles.heroTitle}>Giảm Giá Mùa Hè</Text>
+                <Text style={styles.heroSubtitle}>Lên đến 50% cho Quân tư trang</Text>
+              </View>
+            </View>
 
-        {/* Categories */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Danh mục</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-            {MOCK_CATEGORIES.map(cat => (
-              <TouchableOpacity key={cat.id} style={styles.categoryItem}>
-                <View style={styles.categoryIconContainer}>
-                  {/* Using generic icon since icon string map isn't fully defined, default to folder if missing */}
-                  <IconSymbol name={"folder"} size={24} color={UI_CONFIG.colors.primary} />
-                </View>
-                <Text style={styles.categoryName}>{cat.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+            {/* Categories */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Danh mục</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+                {MOCK_CATEGORIES.map(cat => (
+                  <TouchableOpacity key={cat.id} style={styles.categoryItem}>
+                    <View style={styles.categoryIconContainer}>
+                      <IconSymbol name={"folder"} size={24} color={UI_CONFIG.colors.primary} />
+                    </View>
+                    <Text style={styles.categoryName}>{cat.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
 
-        {/* Best Sellers / Products Grid */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Sản phẩm bán chạy</Text>
-          {/* For web we want a grid, for mobile FlatList numColumns is fine */}
-          <FlatList
-            data={products}
-            keyExtractor={item => item.id}
-            renderItem={renderProduct}
-            numColumns={Platform.OS === 'web' ? 4 : 2}
-            scrollEnabled={false} // Since it's inside ScrollView
-            columnWrapperStyle={styles.productRow}
-            contentContainerStyle={styles.productList}
-            key={Platform.OS === 'web' ? 'web' : 'mobile'} // Force re-render on platform change
-          />
-        </View>
-      </ScrollView>
+            {/* Products Grid Title */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Sản phẩm bán chạy</Text>
+            </View>
+          </>
+        }
+      />
     </SafeArea>
   );
 }
