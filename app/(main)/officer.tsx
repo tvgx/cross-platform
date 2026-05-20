@@ -5,12 +5,13 @@ import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { Button } from '../../components/ui/Button';
 import { useRouter } from 'expo-router';
-import { db } from '../../lib/storage/sqlite';
+import { useRepositories } from '../../context/RepositoryProvider';
 
 export default function OfficerDashboard() {
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
   const router = useRouter();
+  const { postRepository } = useRepositories();
 
   const [posts, setPosts] = useState<any[]>([]);
 
@@ -20,7 +21,7 @@ export default function OfficerDashboard() {
 
   const loadPendingPosts = () => {
     try {
-      const result = db.getAllSync<any>('SELECT * FROM Posts WHERE status = "pending" ORDER BY created_at DESC');
+      const result = postRepository.getPendingPosts();
       setPosts(result);
     } catch (err) {
       console.error(err);
@@ -29,14 +30,8 @@ export default function OfficerDashboard() {
 
   const handleApprove = (postId: string, authorId: string, amount: number) => {
     try {
-      // Update post status
-      db.runSync('UPDATE Posts SET status = "approved" WHERE id = ?', [postId]);
-      
-      // Add balance to user
-      const author = db.getFirstSync<any>('SELECT virtual_balance FROM Users WHERE id = ?', [authorId]);
-      if (author) {
-        db.runSync('UPDATE Users SET virtual_balance = ? WHERE id = ?', [author.virtual_balance + amount, authorId]);
-      }
+      // Phê duyệt và cộng tiền cho chiến sĩ thông qua PostRepository
+      postRepository.approvePost(postId, amount);
       
       Alert.alert('Thành công', 'Đã duyệt chiến tích và cộng tiền cho chiến sĩ.');
       loadPendingPosts();
@@ -48,7 +43,8 @@ export default function OfficerDashboard() {
 
   const handleReject = (postId: string) => {
     try {
-      db.runSync('UPDATE Posts SET status = "rejected" WHERE id = ?', [postId]);
+      // Từ chối phê duyệt thông qua PostRepository
+      postRepository.rejectPost(postId);
       Alert.alert('Thành công', 'Đã từ chối chiến tích.');
       loadPendingPosts();
     } catch (err) {

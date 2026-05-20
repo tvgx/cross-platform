@@ -5,7 +5,7 @@ import { TacticalButton } from '../../../components/ui/TacticalButton';
 import { Input } from '../../../components/ui/Input';
 import { UI_CONFIG } from '../../../constants/config';
 import { useAuthStore } from '../../../store/auth';
-import { db } from '../../../lib/storage/sqlite';
+import { useRepositories } from '../../../context/RepositoryProvider';
 import { cacheMedia } from '../../../lib/storage/fileSystem';
 import * as ImagePicker from 'expo-image-picker';
 import { Header } from '../../../components/navigation/Header';
@@ -13,6 +13,7 @@ import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { SyncService } from '../../../services/SyncService';
 
 export default function UploadScreen() {
+  const { postRepository } = useRepositories();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
@@ -48,19 +49,20 @@ export default function UploadScreen() {
       const now = new Date().toISOString();
       const mockAiScore = Math.floor(Math.random() * 50000) + 10000;
 
-      // 2. Lưu vào SQLite
-      db.runSync(
-        'INSERT INTO Posts (id, title, description, media_url, author_id, status, sync_status, ai_score, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [postId, title, description, localUri, user.id, 'pending', 'pending_sync', mockAiScore, now]
-      );
+      // 2. Lưu vào SQLite qua PostRepository
+      postRepository.createPost({
+        id: postId,
+        title,
+        description,
+        media_url: localUri,
+        author_id: user.id,
+        status: 'pending',
+        ai_score: mockAiScore,
+        reward_coin: mockAiScore,
+        created_at: now
+      });
 
-      // 3. Thêm vào SyncQueue
-      db.runSync(
-        'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-        [`SQ_${postId}`, 'MEDIA_UPLOAD', postId, JSON.stringify({ title }), now]
-      );
-
-      // 4. Kích hoạt sync ngay nếu có mạng
+      // 3. Kích hoạt sync ngay nếu có mạng
       SyncService.runSyncProcess();
 
       Alert.alert(

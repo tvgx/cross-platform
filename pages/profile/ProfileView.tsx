@@ -6,13 +6,14 @@ import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { useRouter, Href } from 'expo-router';
-import { db } from '../../lib/storage/sqlite';
+import { useRepositories } from '../../context/RepositoryProvider';
 
 export function ProfileView() {
   const user = useAuthStore(state => state.user);
   const updateUser = useAuthStore(state => state.updateUser);
   const logout = useAuthStore(state => state.logout);
   const router = useRouter();
+  const { userRepository, postRepository } = useRepositories();
 
   const [posts, setPosts] = useState<any[]>([]);
   const [balance, setBalance] = useState(user?.virtual_balance || 0);
@@ -27,14 +28,14 @@ export function ProfileView() {
     if (!user?.id) return;
     try {
       // Sync latest balance
-      const u = db.getFirstSync<any>('SELECT virtual_balance FROM Users WHERE id = ?', [user.id]);
+      const u = userRepository.getUser(user.id);
       if (u) {
         setBalance(u.virtual_balance);
         updateUser({ virtual_balance: u.virtual_balance });
       }
 
       // Load user's posts (chiến tích)
-      const userPosts = db.getAllSync<any>('SELECT * FROM Posts WHERE author_id = ? ORDER BY created_at DESC', [user.id]);
+      const userPosts = postRepository.getUserPosts(user.id);
       setPosts(userPosts);
     } catch (err) {
       console.error('Error loading user data in Profile:', err);

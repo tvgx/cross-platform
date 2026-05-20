@@ -5,7 +5,7 @@ import { Header } from '../../components/navigation/Header';
 import { Comments, CommentItem } from '../../components/Comments';
 import { UI_CONFIG } from '../../constants/config';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { db } from '../../lib/storage/sqlite';
+import { useRepositories } from '../../context/RepositoryProvider';
 import { Product } from '../../types';
 import { useCartStore } from '../../store/cart';
 import { Button } from '../../components/ui/Button';
@@ -17,6 +17,7 @@ import { TacticalImage } from '../../components/ui/TacticalImage';
 export default function DetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { productRepository } = useRepositories();
   const [product, setProduct] = useState<Product | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [newComment, setNewComment] = useState('');
@@ -31,15 +32,11 @@ export default function DetailScreen() {
     }
   }, [id]);
 
-  const loadProduct = () => {
+  const loadProduct = async () => {
     try {
-      const p = db.getFirstSync<any>('SELECT * FROM Products WHERE id = ?', [id]);
+      const p = await productRepository.getProductDetail(id);
       if (p) {
-        setProduct({
-          ...p,
-          images: JSON.parse(p.images),
-          is_liked: p.is_liked === 1
-        });
+        setProduct(p);
       }
     } catch (err) {
       console.error(err);
@@ -48,11 +45,11 @@ export default function DetailScreen() {
 
   const loadComments = () => {
     try {
-      const result = db.getAllSync<any>('SELECT * FROM Comments WHERE target_id = ? ORDER BY created_at DESC', [id]);
+      const result = productRepository.getComments(id);
       setComments(result.map(c => ({
         id: c.id,
         userId: c.user_id,
-        userName: c.user_name,
+        userName: c.username,
         content: c.content,
         createdAt: c.created_at
       })));
@@ -77,16 +74,18 @@ export default function DetailScreen() {
   };
 
   const handleToggleLike = () => {
-    if (product) {
+    if (product && user) {
       try {
         const newLikedState = !product.is_liked;
         const newLikeCount = newLikedState ? product.like_count + 1 : product.like_count - 1;
-        db.runSync('UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?', [newLikedState ? 1 : 0, newLikeCount, product.id]);
+        productRepository.likeProduct(product.id, user.id, newLikedState, newLikeCount);
         setProduct({ ...product, is_liked: newLikedState, like_count: newLikeCount });
       } catch (err) {
         console.error('Error toggling like:', err);
         Alert.alert('Lỗi', 'Không thể cập nhật trạng thái thích');
       }
+    } else if (!user) {
+      Alert.alert('Thông báo', 'Vui lòng đăng nhập để thực hiện');
     }
   };
 
@@ -95,10 +94,14 @@ export default function DetailScreen() {
     try {
       const commentId = `cmt_${Date.now()}`;
       const now = new Date().toISOString();
-      db.runSync(
-        'INSERT INTO Comments (id, target_id, user_id, user_name, content, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-        [commentId, product.id, user.id, user.full_name || user.username, newComment, now]
-      );
+      productRepository.addComment({
+        id: commentId,
+        product_id: product.id,
+        user_id: user.id,
+        user_name: user.full_name || user.username,
+        content: newComment,
+        created_at: now
+      });
       setNewComment('');
       loadComments();
     } catch (err) {

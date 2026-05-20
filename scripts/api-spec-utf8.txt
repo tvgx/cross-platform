@@ -1,0 +1,814 @@
+﻿OpenAPI Version: 3.0.0
+Title: IT 4788 API
+Description: Tài liệu hướng dẫn sử dụng API hệ thống e-commerce
+Version: 1.0
+
+================ ENDPOINTS ================
+
+[GET] / - 
+  Responses:
+    200: 
+-------------------------------------------
+[GET] /get-test-token - 
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /users/get_user_info - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetUserInfoDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /users/set_user_info - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetUserInfoDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /api/get_categories - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetCategoriesDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/get_list_brands - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListBrandsDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/get_products - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetProductsDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/get_list_products - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListProductsDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/get_comments_product - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetCommentsProductDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/set_comments_product - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetCommentsProductDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/like_product - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/LikeProductDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/report_product - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/ReportProductDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/search - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SearchDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/add_product - Người bán thêm sản phẩm
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/CreateProductDto
+  Responses:
+    201: 
+-------------------------------------------
+[PATCH] /api/update/{id} - Người bán cập nhật thông tin sản phẩm
+  Parameters:
+    - id (path): required - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/UpdateProductDto
+  Responses:
+    200: 
+-------------------------------------------
+[DELETE] /api/delete/{id} - Người bán xóa sản phầm
+  Parameters:
+    - id (path): required - 
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /api/get_user_listings - Lấy danh sách sản phẩm của người bán
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetUserListingsDto
+  Responses:
+    201: 
+-------------------------------------------
+[GET] /order/get_ship_from - Lấy danh sách kho hàng theo khu vực 0-phường, 1-tỉnh
+  Parameters:
+    - level (query): optional - level mã địa chỉ 
+    - index (query): required - 
+    - count (query): required - 
+    - parent_id (query): required - mã tỉnh hoặc mã phường
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /order/get_ship_fee - Phí ship
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetShipFeeDto
+  Responses:
+    200: 
+-------------------------------------------
+[GET] /order/get_list_order_address - lấy danh sách địa chỉ của người mua
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /order/add_order_address - Thêm địa chỉ người dùng
+  Responses:
+    200: 
+-------------------------------------------
+[PATCH] /order/update/{id} - Sửa địa chỉ người dùng
+  Parameters:
+    - id (path): required - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/UpdateOrderAddressDto
+  Responses:
+    200: 
+-------------------------------------------
+[DELETE] /order/delete/{id} - Xóa địa chỉ người dùng
+  Parameters:
+    - id (path): required - 
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /order/get_order_status - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetOrderStatusDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/create_order - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/CreateOrderDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/get_list_purchases - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListPurchasesDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/get_purchase - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetPurchaseDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/edit_purchase - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/EditPurchaseDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/cancel_order - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/CancelOrderDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/set_accept_buyer - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetAcceptBuyerDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/buyer_confirm_received - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/BuyerConfirmReceivedDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/refund_order - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/RefundOrderDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/seller_mark_as_shipped - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SellerMarkAsShippedDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /order/get_order_timeline - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetOrderTimelineDto
+  Responses:
+    201: 
+-------------------------------------------
+[GET] /News/{id} - Lấy news
+  Parameters:
+    - id (path): required - 
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /News/list_news - lấy danh sách news
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListNewsDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /auth/signup - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SignupDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /auth/login - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/LoginDto
+  Responses:
+    201: 
+-------------------------------------------
+[GET] /auth/me - 
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /auth/create_code_reset_password - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/CreateCodeResetPasswordDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /auth/check_code_reset_password - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/CheckCodeResetPasswordDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /auth/reset_password - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/ResetPasswordDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /auth/change_password - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/ChangePasswordDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /auth/change_info_after_signup - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/ChangeInfoAfterSignupDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /auth/logout - 
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /dev_tokens/set_devtoken - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetDevtokenDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /set_user_follow - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetUserFollowDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /get_list_followed - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListFollowedDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /get_list_following - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListFollowingDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /set_user_block - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetUserBlockDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /get_list_blocks - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListBlocksDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /conversation/send_message - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SendMessageDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /conversation/get_list_conversation - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListConvDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /conversation/get_conversation - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetConvDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /conversation/set_read_message - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetReadMessageDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /upload/file - Upload file lên server
+  Request Body:
+    Mime: multipart/form-data
+      Schema properties: [ 'file' ]
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /notification/get_notification - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetNotiticationDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /notification/set_read_notification - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetReadNotificationDto
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /addresses/create - 
+  Responses:
+    200: 
+-------------------------------------------
+[GET] /addresses/me - 
+  Responses:
+    200: 
+-------------------------------------------
+[POST] /wallets/get_current_balance - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetCurrentBalanceDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /wallets/get_balance_history - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetBalanceHistoryDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /push_settings/get_push_setting - 
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /push_settings/set_push_setting - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetPushSettingDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/get_rates - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetRatesDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/set_rates - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SetRateDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/save_search - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/SaveSearchDto
+  Responses:
+    201: 
+-------------------------------------------
+[POST] /api/get_list_saved_search - 
+  Request Body:
+    Mime: application/json
+      Schema Ref: #/components/schemas/GetListSavedSearchDto
+  Responses:
+    201: 
+-------------------------------------------
+
+================ SCHEMAS ================
+
+Schema: GetUserInfoDto
+  Properties:
+    - user_id: number  (required)
+
+Schema: SetUserInfoDto
+  Properties:
+    - email: string  (required)
+    - username: string  (required)
+    - status: string  (required)
+    - avatar: string  (required)
+    - firstname: string  (required)
+    - lastname: string  (required)
+    - address: string  (required)
+    - cover_image: string  (required)
+    - cover_image_web: string  (required)
+
+Schema: GetCategoriesDto
+  Properties:
+    - parent_id: number  (optional)
+
+Schema: GetListBrandsDto
+  Properties:
+    - category_id: number  (optional)
+    - index: number  (optional)
+    - count: number  (optional)
+
+Schema: GetProductsDto
+  Properties:
+    - id: number  (required)
+
+Schema: GetListProductsDto
+  Properties:
+    - category_id: number  (optional)
+    - keyword: string  (optional)
+    - brand_id: number  (optional)
+    - product_size_id: number  (optional)
+    - price_min: number  (optional)
+    - price_max: number  (optional)
+    - condition: string  (optional)
+    - order: string  (optional)
+    - latitude: number  (optional)
+    - longitude: number  (optional)
+    - last_id: number  (optional)
+    - index: number  (required)
+    - count: number  (required)
+
+Schema: GetCommentsProductDto
+  Properties:
+    - product_id: number  (required)
+    - index: number  (required)
+    - count: number  (required)
+
+Schema: SetCommentsProductDto
+  Properties:
+    - product_id: number  (required)
+    - content: string  (required)
+    - index: number  (required)
+    - count: number  (required)
+
+Schema: LikeProductDto
+  Properties:
+    - product_id: number  (required)
+
+Schema: ReportProductDto
+  Properties:
+    - product_id: number  (required)
+    - subject: string  (required)
+    - details: string  (required)
+
+Schema: SearchDto
+  Properties:
+    - keyword: string  (optional)
+    - category_id: number  (optional)
+    - brand_id: number  (optional)
+    - price_min: number  (optional)
+    - price_max: number  (optional)
+    - index: number  (optional)
+    - count: number  (optional)
+
+Schema: CreateProductVariantDto
+  Properties:
+    - id: number  (optional)
+    - size: string  (required)
+    - stock: number  (required)
+    - color: string  (required)
+    - weight: number  (required)
+
+Schema: VideoDto
+  Properties:
+    - url: string  (required)
+
+Schema: CreateProductDto
+  Properties:
+    - title: string  (required)
+    - price: number  (required)
+    - description: string  (required)
+    - image_urls: array  (optional)
+    - brand_id: number  (required)
+    - variants: array  (required)
+    - category_id: number  (required)
+    - ship_from_id: number  (required)
+    - videos: array  (required)
+
+Schema: UpdateProductDto
+  Properties:
+    - title: string  (optional)
+    - price: number  (optional)
+    - description: string  (optional)
+    - image_urls: array  (optional)
+    - brand_id: number  (optional)
+    - variants: array  (optional)
+    - category_id: number  (optional)
+    - ship_from_id: number  (optional)
+    - videos: array  (optional)
+    - image_urls_del: array  (optional)
+    - price_discount: number  (required)
+
+Schema: GetUserListingsDto
+  Properties:
+    - index: number  (required)
+    - count: number  (required)
+    - user_id: number  (required)
+    - keyword: string  (required)
+    - category_id: number  (required)
+
+Schema: GetShipFeeDto
+  Properties:
+    - product_id: number  (required)
+    - address_id: number  (required)
+
+Schema: UpdateOrderAddressDto
+  Properties:
+    - address: string  (optional)
+    - is_default: boolean  (optional)
+    - address_id: array  (optional)
+    - lat: number  (optional)
+    - lng: number  (optional)
+    - receiver_name: string  (optional)
+    - phone: string  (optional)
+    - full_address: string  (optional)
+    - address_detail: string  (optional)
+
+Schema: GetOrderStatusDto
+  Properties:
+    - purchase_id: number  (required)
+
+Schema: CreateOrderItemDto
+  Properties:
+    - product_id: number  (required)
+    - quantity: number  (required)
+
+Schema: CreateOrderDto
+  Properties:
+    - items: array  (required)
+    - source: string  (required)
+    - address_id: number  (required)
+
+Schema: GetListPurchasesDto
+  Properties:
+    - index: string  (required)
+    - count: string  (required)
+    - state: string  (optional)
+
+Schema: GetPurchaseDto
+  Properties:
+    - id: string  (required)
+
+Schema: EditPurchaseDto
+  Properties:
+    - id: string  (required)
+    - name: string  (optional)
+    - address: string  (optional)
+    - address_id: string  (optional)
+    - note: string  (optional)
+
+Schema: CancelOrderDto
+  Properties:
+    - id: string  (required)
+    - reason: number  (optional)
+
+Schema: SetAcceptBuyerDto
+  Properties:
+    - purchase_id: string  (required)
+    - buyer_id: string  (required)
+    - is_accept: number  (required)
+
+Schema: BuyerConfirmReceivedDto
+  Properties:
+    - purchase_id: string  (required)
+    - state: string  (optional)
+
+Schema: RefundOrderDto
+  Properties:
+    - purchase_id: string  (required)
+    - state: string  (optional)
+    - reason: string  (optional)
+
+Schema: SellerMarkAsShippedDto
+  Properties:
+    - purchase_id: string  (required)
+    - buyer_id: string  (required)
+
+Schema: GetOrderTimelineDto
+  Properties:
+    - purchase_id: string  (required)
+
+Schema: GetListNewsDto
+  Properties:
+    - index: number  (required)
+    - count: number  (required)
+
+Schema: SignupDto
+  Properties:
+    - phone_number: string  (required)
+    - password: string  (required)
+    - uuid: string  (required)
+
+Schema: LoginDto
+  Properties:
+    - phone_number: string  (required)
+    - password: string  (required)
+
+Schema: CreateCodeResetPasswordDto
+  Properties:
+    - phone_number: string  (required)
+
+Schema: CheckCodeResetPasswordDto
+  Properties:
+    - phone_number: string  (required)
+    - reset_code: string  (required)
+
+Schema: ResetPasswordDto
+  Properties:
+    - phone_number: string  (required)
+    - password: string  (required)
+
+Schema: ChangePasswordDto
+  Properties:
+    - token: string  (optional)
+    - password: string  (required)
+    - new_password: string  (required)
+
+Schema: ChangeInfoAfterSignupDto
+  Properties:
+    - username: string  (required)
+    - avatar: string  (optional)
+
+Schema: SetDevtokenDto
+  Properties:
+    - devtype: string  (required)
+    - devtoken: string  (required)
+
+Schema: SetUserFollowDto
+  Properties:
+    - followee_id: object  (required)
+    - action: string  (required)
+
+Schema: GetListFollowedDto
+  Properties:
+    - user_id: object  (required)
+    - index: object  (required)
+    - count: object  (required)
+
+Schema: GetListFollowingDto
+  Properties:
+    - user_id: object  (required)
+    - index: object  (required)
+    - count: object  (required)
+
+Schema: SetUserBlockDto
+  Properties:
+    - user_id: object  (required)
+    - type: object  (required)
+
+Schema: GetListBlocksDto
+  Properties:
+    - index: object  (required)
+    - count: object  (required)
+
+Schema: SendMessageDto
+  Properties:
+    - to_id: number  (required)
+    - message: string  (required)
+    - type_message: string  (required)
+    - product_id: number  (required)
+
+Schema: GetListConvDto
+  Properties:
+    - index: number  (required)
+    - count: number  (required)
+
+Schema: GetConvDto
+  Properties:
+    - partner_id: number  (required)
+    - conversation_id: number  (required)
+    - index: number  (required)
+    - count: number  (required)
+
+Schema: SetReadMessageDto
+  Properties:
+    - partner_id: number  (required)
+
+Schema: GetNotiticationDto
+  Properties:
+    - index: number  (required)
+    - count: number  (required)
+    - group: number  (required)
+
+Schema: SetReadNotificationDto
+  Properties:
+    - notification_id: number  (required)
+
+Schema: GetCurrentBalanceDto
+  Properties:
+
+Schema: GetBalanceHistoryDto
+  Properties:
+    - index: string  (required)
+    - count: string  (required)
+
+Schema: SetPushSettingDto
+  Properties:
+    - like: string  (optional)
+    - comment: string  (optional)
+    - transaction: string  (optional)
+    - announcement: string  (optional)
+    - sound_on: string  (optional)
+    - sound_default: string  (optional)
+
+Schema: GetRatesDto
+  Properties:
+    - user_id: number  (optional)
+    - level: number  (optional)
+    - index: number  (optional)
+    - count: number  (optional)
+
+Schema: SetRateDto
+  Properties:
+    - user_id: number  (required)
+    - level: number  (required)
+    - content: string  (required)
+    - product_id: number  (optional)
+    - purchase_id: number  (optional)
+
+Schema: SaveSearchDto
+  Properties:
+    - keyword: string  (required)
+
+Schema: GetListSavedSearchDto
+  Properties:
+    - index: number  (required)
+    - count: number  (required)

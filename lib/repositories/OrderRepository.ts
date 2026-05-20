@@ -258,5 +258,210 @@ export const OrderRepository = {
     if (sqliteStatus === 'pending_sync') return 'pending';
     if (sqliteStatus === 'synced') return 'confirmed';
     return sqliteStatus as Order['status'];
+  },
+
+  /**
+   * Thực hiện thanh toán đơn hàng đầy đủ (Transaction dã chiến).
+   * Khấu trừ số dư ví, cập nhật kho sản phẩm, ghi Orders, OrderItems, Transactions và SyncQueue.
+   */
+  checkoutOrder(params: {
+    userId: string;
+    items: {
+      product_id: string;
+      title: string;
+      price: number;
+      quantity: number;
+      image?: string;
+      variant_id?: string;
+      variant_title?: string;
+      seller_id: string;
+    }[];
+    total: number;
+    shipFee: number;
+    sellerId: string;
+  }): string {
+    const orderId = `ORD_${Date.now()}`;
+    const now = new Date().toISOString();
+
+    db.withTransactionSync(() => {
+      // 1. Khấu trừ số dư tài khoản của chiến sĩ
+      db.runSync(
+        'UPDATE Users SET virtual_balance = virtual_balance - ? WHERE id = ?',
+        [params.total, params.userId]
+      );
+
+      // Cập nhật số dư trong bảng ví tiền Wallets
+      db.runSync(
+        'UPDATE Wallets SET balance = balance - ? WHERE user_id = ?',
+        [params.total, params.userId]
+      );
+
+      // 2. Ghi hóa đơn chính (Orders)
+      const firstItem = params.items[0];
+      db.runSync(
+        `INSERT INTO Orders (
+          id, buyer_id, buyer_coordinates_x, buyer_coordinates_y, buyer_coordinates_description,
+          seller_id, seller_coordinates_x, seller_coordinates_y, seller_coordinates_description,
+          status, total_price, shipping_fee, sync_status, created_at, product_id, quantity
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+        [
+          orderId,
+          params.userId,
+          20.8449, // Outpost Delta Latitude
+          106.6881, // Outpost Delta Longitude
+          'Tiền đồn Hải Phòng - Outpost Delta-7',
+          params.sellerId,
+          21.0285, // Depot Bravo Latitude
+          105.8542, // Depot Bravo Longitude
+          'Tổng kho quân khu Thủ đô - Base Bravo-1',
+          'pending_sync',
+          params.total,
+          params.shipFee,
+          'pending_sync',
+          now,
+          firstItem.product_id,
+          firstItem.quantity
+        ]
+      );
+
+      // 3. Ghi chi tiết các mặt hàng vào bảng OrderItems & cập nhật kho
+      for (const item of params.items) {
+        const itemId = `OI_${orderId}_${item.product_id}_${item.variant_id || 'none'}`;
+        db.runSync(
+          'INSERT INTO OrderItems (id, order_id, product_id, variant_id, price, quantity) VALUES (?, ?, ?, ?, ?, ?);',
+          [itemId, orderId, item.product_id, item.variant_id || '', item.price, item.quantity]
+        );
+
+        // Trừ kho cục bộ
+        if (item.variant_id) {
+          db.runSync(
+            'UPDATE ProductVariants SET stock = MAX(0, stock - ?) WHERE id = ?;',
+            [item.quantity, item.variant_id]
+          );
+        } else {
+          db.runSync(
+            'UPDATE Products SET stock = MAX(0, stock - ?) WHERE id = ?;',
+            [item.quantity, item.product_id]
+          );
+        }
+      }
+
+      // 4. Tạo giao dịch tài chính ghi lại lịch sử thanh toán
+      const txId = `TX_${Date.now()}`;
+      db.runSync(
+        'INSERT INTO Transactions (id, wallet_id, type, amount, status, description, order_id, created_at) VALUES (?, (SELECT id FROM Wallets WHERE user_id = ?), ?, ?, ?, ?, ?, ?);',
+        [txId, params.userId, 'SPEND', params.total, 'completed', `Thanh toán đơn hàng quân nhu ${orderId}`, orderId, now]
+      );
+
+      // 5. Đẩy hàng chờ SyncQueue
+      const syncPayload = {
+        id: orderId,
+        buyer_id: params.userId,
+        buyer_coordinates: { x: 20.8449, y: 106.6881, description: 'Tiền đồn Hải Phòng - Outpost Delta-7' },
+        seller_id: params.sellerId,
+        seller_coordinates: { x: 21.0285, y: 105.8542, description: 'Tổng kho quân khu Thủ đô - Base Bravo-1' },
+        total_price: params.total,
+        shipping_fee: params.shipFee,
+        created_at: now,
+        items: params.items.map(item => ({
+          product_id: item.product_id,
+          variant_id: item.variant_id || null,
+          variant_title: item.variant_title || null,
+          price: item.price,
+          quantity: item.quantity,
+          title: item.title
+        }))
+      };
+
+      db.runSync(
+        'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?);',
+        [`SQ_${orderId}`, 'ORDER_UPLOAD', orderId, JSON.stringify(syncPayload), now]
+      );
+    });
+
+    return orderId;
+  },
+
+  /**
+   * Hoàn tiền cục bộ (Rollback/Refund) khi đơn hàng gặp sự cố hết hàng/hủy đơn từ Server.
+   */
+  rollbackOrderLocal(orderId: string, reason: string): void {
+    try {
+      const order = db.getFirstSync<{ buyer_id: string; total_price: number }>(
+        'SELECT buyer_id, total_price FROM Orders WHERE id = ?',
+        [orderId]
+      );
+      if (order) {
+        db.withTransactionSync(() => {
+          // 1. Hoàn lại số dư ví cục bộ
+          db.runSync(
+            'UPDATE Wallets SET balance = balance + ? WHERE user_id = ?',
+            [order.total_price, order.buyer_id]
+          );
+          db.runSync(
+            'UPDATE Users SET virtual_balance = virtual_balance + ? WHERE id = ?',
+            [order.total_price, order.buyer_id]
+          );
+
+          // 2. Cập nhật trạng thái đơn hàng cục bộ thành 'cancelled'
+          db.runSync(
+            "UPDATE Orders SET status = 'cancelled', sync_status = 'failed', buyer_coordinates_description = ? WHERE id = ?",
+            [`Lỗi dã chiến: ${reason}`, orderId]
+          );
+
+          // 3. Hoàn lại số lượng tồn kho sản phẩm/biến thể dã chiến
+          const items = db.getAllSync<{ product_id: string; quantity: number; variant_id: string }>(
+            'SELECT product_id, quantity, variant_id FROM OrderItems WHERE order_id = ?',
+            [orderId]
+          );
+          for (const item of items) {
+            if (item.variant_id) {
+              db.runSync(
+                'UPDATE ProductVariants SET stock = stock + ? WHERE id = ?',
+                [item.quantity, item.variant_id]
+              );
+            } else {
+              db.runSync(
+                'UPDATE Products SET stock = stock + ? WHERE id = ?',
+                [item.quantity, item.product_id]
+              );
+            }
+          }
+
+          // 4. Tạo giao dịch tài chính EARN để ghi nhận hoàn tiền rõ ràng
+          const txId = `TX_REF_${Date.now()}`;
+          db.runSync(
+            'INSERT INTO Transactions (id, wallet_id, type, amount, status, description, order_id, created_at) VALUES (?, (SELECT id FROM Wallets WHERE user_id = ?), ?, ?, ?, ?, ?, ?);',
+            [txId, order.buyer_id, 'EARN', order.total_price, 'completed', `Hoàn tiền dã chiến cho đơn hàng ${orderId} (${reason})`, orderId, new Date().toISOString()]
+          );
+        });
+
+        // 5. Cập nhật số dư trong Zustand Store UI dã chiến ngay lập tức
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser && currentUser.id === order.buyer_id) {
+          useAuthStore.getState().updateUser({
+            virtual_balance: currentUser.virtual_balance + order.total_price
+          });
+        }
+        console.log(`[OrderRepo] Đã rollback hoàn tiền thành công đơn hàng ${orderId} cục bộ. Lý do: ${reason}`);
+      }
+    } catch (e) {
+      console.error('[OrderRepo] Lỗi thực hiện rollback đơn hàng dã chiến:', e);
+    }
+  },
+
+  /**
+   * Đánh dấu đơn hàng đã được đồng bộ hóa thành công lên máy chủ dã chiến.
+   */
+  markOrderSynced(orderId: string): void {
+    try {
+      db.runSync(
+        "UPDATE Orders SET status = 'synced', sync_status = 'synced' WHERE id = ?",
+        [orderId]
+      );
+      console.log(`[OrderRepo] Đã đánh dấu đơn hàng ${orderId} đã đồng bộ thành công.`);
+    } catch (e) {
+      console.error('[OrderRepo] Lỗi cập nhật trạng thái đồng bộ đơn hàng:', e);
+    }
   }
 };

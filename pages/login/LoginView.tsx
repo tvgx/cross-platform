@@ -6,12 +6,14 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
-import { db } from '../../lib/storage/sqlite';
+import { useRepositories } from '../../context/RepositoryProvider';
+import { apiCall } from '../../lib/api/client';
 import { User } from '../../types';
 
 export function LoginView() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const { userRepository } = useRepositories();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,66 +27,56 @@ export function LoginView() {
 
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
-      try {
-        // Look up user from SQLite
-        const row = db.getFirstSync<any>(
-          'SELECT * FROM Users WHERE username = ? OR phone = ?',
-          [username, username]
-        );
+    try {
+      // Look up user from SQLite via Repository
+      const user = userRepository.getUserByUsernameOrPhone(username);
 
-        if (row) {
-          const user: User = {
-            id: row.id,
-            username: row.username,
-            full_name: row.full_name,
-            avatar: row.avatar,
-            rank: row.rank,
-            unit: row.unit,
-            virtual_balance: row.virtual_balance,
-            is_seller: row.is_seller === 1,
-            phone: row.phone,
-            email: row.email,
-            created_at: new Date().toISOString(),
-          };
-          setAuth(user, { access_token: 'mock_token' });
-
-          // Route by rank
-          if (row.rank === 'Sĩ quan' || row.rank === 'officer' || row.rank === 'admin') {
-            router.replace('/(main)/officer' as Href);
-          } else {
-            router.replace('/(main)/(tabs)' as Href);
+      if (user) {
+        let accessToken = 'mock_token';
+        try {
+          // Lấy test token thực từ máy chủ dã chiến Cloudflare
+          const token = await apiCall<string>('GET', '/get-test-token');
+          if (token) {
+            accessToken = token;
+            console.log('[Auth] Đã lấy thành công JWT Test Token từ Cloudflare Server:', token);
           }
-        } else if (username === 'admin') {
-          // Hardcoded fallback for officer demo
-          const officerRow = db.getFirstSync<any>('SELECT * FROM Users WHERE id = "1"');
-          if (officerRow) {
-            const user: User = {
-              id: officerRow.id,
-              username: officerRow.username,
-              full_name: officerRow.full_name,
-              avatar: officerRow.avatar,
-              rank: officerRow.rank,
-              unit: officerRow.unit,
-              virtual_balance: officerRow.virtual_balance,
-              is_seller: officerRow.is_seller === 1,
-              phone: officerRow.phone,
-              email: officerRow.email,
-              created_at: new Date().toISOString(),
-            };
-            setAuth(user, { access_token: 'mock_token' });
-            router.replace('/(main)/officer' as Href);
-          }
-        } else {
-          Alert.alert('Đăng nhập thất bại', 'Sai thông tin đăng nhập. Thử: nguyenvana / tranvanb');
+        } catch (apiErr) {
+          console.log('[Auth] Không kết nối được server Cloudflare để lấy Test Token (Chế độ Ngoại tuyến) - Dùng mock token.', apiErr);
         }
-      } catch (err) {
-        console.error(err);
-        Alert.alert('Lỗi', 'Đã có lỗi xảy ra, thử lại sau.');
+
+        setAuth(user, { access_token: accessToken });
+        setLoading(false);
+
+        // Route by rank
+        if (user.rank === 'Sĩ quan' || user.rank === 'officer' || user.rank === 'admin') {
+          router.replace('/(main)/officer' as Href);
+        } else {
+          router.replace('/(main)/(tabs)' as Href);
+        }
+      } else if (username === 'admin') {
+        // Hardcoded fallback for officer demo
+        const officer = userRepository.getUser('1');
+        if (officer) {
+          let accessToken = 'mock_token';
+          try {
+            const token = await apiCall<string>('GET', '/get-test-token');
+            if (token) accessToken = token;
+          } catch (e) {}
+          setAuth(officer, { access_token: accessToken });
+          setLoading(false);
+          router.replace('/(main)/officer' as Href);
+        }
+      } else {
+        setLoading(false);
+        Alert.alert('Đăng nhập thất bại', 'Sai thông tin đăng nhập. Thử: nguyenvana / tranvanb');
       }
-    }, 800);
+    } catch (err) {
+      setLoading(false);
+      console.error(err);
+      Alert.alert('Lỗi', 'Đã có lỗi xảy ra, thử lại sau.');
+    }
   };
+
 
   return (
     <SafeArea>

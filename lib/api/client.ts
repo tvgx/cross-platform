@@ -16,9 +16,22 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    let token = '';
+    
+    // 1. Thử lấy từ auth_tokens trực tiếp
     const tokens = getStoredJSON<AuthTokens>('auth_tokens');
     if (tokens?.access_token) {
-      config.headers.Authorization = `Bearer ${tokens.access_token}`;
+      token = tokens.access_token;
+    } else {
+      // 2. Thử lấy từ Zustand persisted store 'auth-storage'
+      const authPersist = getStoredJSON<{ state: { tokens: AuthTokens | null } }>('auth-storage');
+      if (authPersist?.state?.tokens?.access_token) {
+        token = authPersist.state.tokens.access_token;
+      }
+    }
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
@@ -28,7 +41,18 @@ apiClient.interceptors.request.use(
 // ─── Response interceptor: handle 401 ────────────────────────────────────────
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data && typeof response.data === 'object') {
+      const dataObj = response.data as any;
+      if (dataObj.code !== undefined) {
+        const codeStr = String(dataObj.code);
+        dataObj.success = codeStr === '1000' || codeStr === '9994' || codeStr === '200' || codeStr === '201' || (response.status >= 200 && response.status < 300 && codeStr !== '1004' && codeStr !== '9999');
+      } else {
+        dataObj.success = response.status >= 200 && response.status < 300;
+      }
+    }
+    return response;
+  },
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
       // Token expired — clear credentials so the auth store re-hydrates

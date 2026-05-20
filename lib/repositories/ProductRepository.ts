@@ -227,28 +227,30 @@ export const ProductRepository = {
   async fetchAndSyncProducts(filters?: ProductFilters): Promise<void> {
     const response = await productsApi.getListProducts(filters);
     if (response.success && response.data) {
-      const items = response.data.items;
+      const items = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data && Array.isArray((response.data as any).items) ? (response.data as any).items : []);
 
       // Chạy Transaction đồng bộ SQLite hàng loạt cực kỳ tối ưu
       db.withTransactionSync(() => {
-        items.forEach(p => {
+        items.forEach((p: any) => {
           db.runSync(
             `INSERT OR REPLACE INTO Products 
             (id, seller_id, category_id, title, price, images, stock, sold_count, rating, like_count, is_liked, created_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-              p.id,
-              p.seller_id,
-              p.category_id,
+              String(p.id),
+              p.seller_id ? String(p.seller_id) : '1',
+              p.category_id ? String(p.category_id) : '1',
               p.title,
-              p.price,
-              JSON.stringify(p.images),
-              p.stock,
-              p.sold_count,
-              p.rating,
-              p.like_count,
+              p.price || 0,
+              JSON.stringify(p.images || []),
+              p.stock || 0,
+              p.sold_count || 0,
+              p.rating || 5.0,
+              p.like_count || 0,
               p.is_liked ? 1 : 0,
-              new Date().toISOString()
+              p.created_at || new Date().toISOString()
             ]
           );
         });
@@ -296,6 +298,95 @@ export const ProductRepository = {
       return JSON.parse(text);
     } catch (e) {
       return fallback;
+    }
+  },
+
+  /**
+   * Cập nhật lượt thích sản phẩm của người dùng và lưu vào SQLite Likes.
+   */
+  likeProduct(productId: string, userId: string, isLiked: boolean, likeCount: number): void {
+    try {
+      db.withTransactionSync(() => {
+        // A. Cập nhật bảng Products
+        db.runSync(
+          'UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?',
+          [isLiked ? 1 : 0, likeCount, productId]
+        );
+
+        // B. Lưu hoặc xóa lượt thích chi tiết
+        if (isLiked) {
+          const likeId = `like_${userId}_${productId}`;
+          db.runSync(
+            'INSERT OR REPLACE INTO Likes (id, product_id, user_id, sync_status) VALUES (?, ?, ?, ?)',
+            [likeId, productId, userId, 'pending_sync']
+          );
+        } else {
+          db.runSync(
+            'DELETE FROM Likes WHERE product_id = ? AND user_id = ?',
+            [productId, userId]
+          );
+        }
+      });
+      console.log(`[ProductRepo] Đã lưu cập nhật lượt thích sản phẩm ${productId} cho User ${userId}`);
+    } catch (e) {
+      console.error('[ProductRepo] Lỗi cập nhật lượt thích sản phẩm:', e);
+      throw e;
+    }
+  },
+
+  /**
+   * Lấy danh sách bình luận của một sản phẩm quân nhu.
+   */
+  getComments(productId: string): any[] {
+    try {
+      const rows = db.getAllSync<any>(
+        'SELECT * FROM Comments WHERE target_id = ? OR product_id = ? ORDER BY created_at DESC',
+        [productId, productId]
+      );
+      return rows.map(r => ({
+        id: r.id,
+        product_id: r.product_id || r.target_id,
+        user_id: r.user_id,
+        username: r.user_name || 'Đồng chí ẩn danh',
+        content: r.content,
+        created_at: r.created_at
+      }));
+    } catch (e) {
+      console.error('[ProductRepo] Lỗi lấy danh sách bình luận:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Thêm bình luận dã chiến mới (offline-first).
+   */
+  addComment(comment: {
+    id: string;
+    product_id: string;
+    user_id: string;
+    user_name: string;
+    content: string;
+    created_at: string;
+  }): void {
+    try {
+      db.runSync(
+        `INSERT INTO Comments (id, target_id, product_id, user_id, user_name, content, sync_status, created_at) 
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          comment.id,
+          comment.product_id,
+          comment.product_id,
+          comment.user_id,
+          comment.user_name,
+          comment.content,
+          'pending_sync',
+          comment.created_at
+        ]
+      );
+      console.log(`[ProductRepo] Thêm bình luận offline ${comment.id} thành công.`);
+    } catch (e) {
+      console.error('[ProductRepo] Lỗi thêm bình luận dã chiến:', e);
+      throw e;
     }
   }
 };

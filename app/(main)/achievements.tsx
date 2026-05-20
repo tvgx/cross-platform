@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react
 import { SafeArea } from '../../components/layout/SafeArea';
 import { Header } from '../../components/navigation/Header';
 import { UI_CONFIG } from '../../constants/config';
-import { db } from '../../lib/storage/sqlite';
+import { useRepositories } from '../../context/RepositoryProvider';
 import { useAuthStore } from '../../store/auth';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { TacticalButton } from '../../components/ui/TacticalButton';
@@ -13,6 +13,7 @@ export default function AchievementsScreen() {
   const [achievements, setAchievements] = useState<any[]>([]);
   const user = useAuthStore(state => state.user);
   const router = useRouter();
+  const { postRepository } = useRepositories();
 
   useEffect(() => {
     loadAchievements();
@@ -21,10 +22,7 @@ export default function AchievementsScreen() {
   const loadAchievements = () => {
     if (!user) return;
     try {
-      const data = db.getAllSync<any>(
-        'SELECT * FROM Posts WHERE author_id = ? ORDER BY created_at DESC',
-        [user.id]
-      );
+      const data = postRepository.getUserPosts(user.id);
       setAchievements(data);
     } catch (err) {
       console.error(err);

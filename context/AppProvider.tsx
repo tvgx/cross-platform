@@ -94,7 +94,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       if (catRes.success) setCategories(catRes.data);
       if (brandRes.success) setBrands(brandRes.data);
-      if (prodRes.success) setProducts(prodRes.data.items);
+      if (prodRes.success && prodRes.data) {
+        const items = Array.isArray(prodRes.data)
+          ? prodRes.data
+          : (prodRes.data && Array.isArray((prodRes.data as any).items) ? (prodRes.data as any).items : []);
+        setProducts(items);
+      }
       markSynced();
     } catch {
       // Silently fail — UI already shows cached data

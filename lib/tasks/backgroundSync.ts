@@ -10,12 +10,19 @@ if (Platform.OS !== 'web') {
   TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
     try {
       const queueSize = useSyncQueueStore.getState().queue.length;
-      if (queueSize === 0) {
+      const { SyncQueueRepository } = require('../repositories/SyncQueueRepository');
+      const sqliteQueueSize = SyncQueueRepository.getPendingTasks(1).length;
+
+      if (queueSize === 0 && sqliteQueueSize === 0) {
         return BackgroundFetch.BackgroundFetchResult.NoData;
       }
 
-      // Process the queue
+      // Process the Zustand queue
       await useSyncQueueStore.getState().processQueue();
+      
+      // Process the SQLite offline sync queue
+      const { SyncService } = require('../../services/SyncService');
+      await SyncService.runSyncProcess();
       
       return BackgroundFetch.BackgroundFetchResult.NewData;
     } catch (error) {
