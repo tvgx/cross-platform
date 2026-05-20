@@ -1,6 +1,24 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
 
-const BASE_URL = 'https://adware-merely-andrews-home.trycloudflare.com';
+function getBaseUrl() {
+  try {
+    const envPath = path.resolve(__dirname, '../local.env');
+    if (fs.existsSync(envPath)) {
+      const envContent = fs.readFileSync(envPath, 'utf8');
+      const match = envContent.match(/^EXPO_PUBLIC_API_URL\s*=\s*(.+)$/m);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+  } catch (e) {
+    console.error('Lỗi đọc file local.env:', e);
+  }
+  return 'https://api.example.com/v1'; // fallback
+}
+
+const BASE_URL = getBaseUrl();
 
 const typicalPaths = [
   '/api-json',
