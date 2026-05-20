@@ -43,3 +43,6 @@ app-example
 /android
 /docs
 .early.coverage
+
+local.env
+*.txt
