@@ -55,7 +55,7 @@ export default function AchievementsScreen() {
               variant="outline" 
               size="sm" 
               onPress={() => router.push({
-                pathname: '/(main)/appeal-form',
+                pathname: '/(main)/appeal-form' as any,
                 params: { postId: item.id }
               })}
             />

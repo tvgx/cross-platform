@@ -1,31 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, FlatList, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, FlatList, Dimensions, Platform, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
-import { MOCK_CATEGORIES, MOCK_PRODUCTS } from '../../lib/mockDB';
-import { Product } from '../../types';
+import { MOCK_CATEGORIES } from '../../lib/mockDB';
+import { ProductListItem } from '../../types';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { useRouter, Href } from 'expo-router';
+import { TacticalImage } from '../../components/ui/TacticalImage';
+import { formatCurrency } from '../../lib/utils/format';
+import { ProductRepository } from '../../lib/repositories/ProductRepository';
+import { useCatalogStore } from '../../store/catalog';
 
 export function HomeView() {
-  const [products, setProducts] = useState<Product[]>([]);
   const router = useRouter();
+  const storeProducts = useCatalogStore(state => state.products);
+  const categories = useCatalogStore(state => state.categories);
+
+  const [productsList, setProductsList] = useState<ProductListItem[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const loadData = async (isForce = false) => {
+    if (isForce) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      // 1. Đồng bộ Danh mục và Thương hiệu dã chiến cục bộ/máy chủ
+      await ProductRepository.syncCategoriesAndBrands(isForce);
+      // 2. Lấy danh sách sản phẩm thông qua Repository (Offline-First SSoT)
+      const data = await ProductRepository.getProducts(undefined, isForce);
+      setProductsList(data);
+    } catch (error) {
+      console.error('[HomeView] Lỗi nạp dữ liệu dã chiến:', error);
+    } finally {
+      setRefreshing(false);
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Simulate loading data
-    setProducts(MOCK_PRODUCTS);
+    loadData();
   }, []);
 
-  const renderProduct = ({ item }: { item: Product }) => (
+  // Lắng nghe thay đổi của Zustand store (khi sync ngầm hoàn thành) để cập nhật UI tức thời
+  useEffect(() => {
+    if (storeProducts && storeProducts.length > 0) {
+      // Lọc nhẹ hoặc gán thẳng từ store
+      setProductsList(storeProducts);
+    }
+  }, [storeProducts]);
+
+  const handleRefresh = () => {
+    loadData(true);
+  };
+
+  const renderProduct = ({ item }: { item: ProductListItem }) => (
     <TouchableOpacity 
       style={styles.productCard}
       onPress={() => router.push(`/(main)/detail?id=${item.id}` as Href)}
     >
-      <Image source={{ uri: item.images[0] }} style={styles.productImage} />
+      <TacticalImage uri={item.images[0]} categoryId={item.category_id} style={styles.productImage} />
       <View style={styles.productInfo}>
         <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.productPrice}>{item.price.toLocaleString('vi-VN')} ₫</Text>
+        <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
         <View style={styles.productFooter}>
           <Text style={styles.soldCount}>Đã bán {item.sold_count}</Text>
           <View style={styles.ratingContainer}>
@@ -41,7 +82,7 @@ export function HomeView() {
     <SafeArea edges={['top']} style={{ flex: 1 }}>
       <CustomAppBar title="Army+ E-commerce" />
       <FlatList
-        data={products}
+        data={productsList}
         keyExtractor={item => item.id}
         renderItem={renderProduct}
         numColumns={Platform.OS === 'web' ? 4 : 2}
@@ -49,6 +90,14 @@ export function HomeView() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.container}
         columnWrapperStyle={styles.productRow}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[UI_CONFIG.colors.primary]}
+            tintColor={UI_CONFIG.colors.primary}
+          />
+        }
         ListHeaderComponent={
           <>
             {/* Hero Banner */}
@@ -67,10 +116,10 @@ export function HomeView() {
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Danh mục</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-                {MOCK_CATEGORIES.map(cat => (
+                {(categories && categories.length > 0 ? categories : MOCK_CATEGORIES).map(cat => (
                   <TouchableOpacity key={cat.id} style={styles.categoryItem}>
                     <View style={styles.categoryIconContainer}>
-                      <IconSymbol name={"folder"} size={24} color={UI_CONFIG.colors.primary} />
+                      <IconSymbol name={(cat.icon || "folder") as any} size={24} color={UI_CONFIG.colors.primary} />
                     </View>
                     <Text style={styles.categoryName}>{cat.name}</Text>
                   </TouchableOpacity>
@@ -81,6 +130,7 @@ export function HomeView() {
             {/* Products Grid Title */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Sản phẩm bán chạy</Text>
+              {loading && <ActivityIndicator size="small" color={UI_CONFIG.colors.primary} style={{ marginTop: 10 }} />}
             </View>
           </>
         }

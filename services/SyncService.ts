@@ -28,10 +28,16 @@ export const SyncService = {
         let success = false;
         
         try {
+          const payloadParsed = task.payload ? JSON.parse(task.payload) : null;
+
           if (task.action === 'ORDER_UPLOAD') {
-            success = await this.uploadOrder(task.target_id, JSON.parse(task.payload));
+            success = await this.uploadOrder(task.target_id, payloadParsed);
           } else if (task.action === 'MEDIA_UPLOAD') {
             success = await this.uploadMedia(task.target_id);
+          } else if (task.action === 'APPEAL_SUBMIT') {
+            success = await this.submitAppeal(task.target_id, payloadParsed);
+          } else if (task.action === 'SEND_MESSAGE') {
+            success = await this.sendMessage(task.target_id, payloadParsed);
           }
 
           if (success) {
@@ -52,15 +58,15 @@ export const SyncService = {
   },
 
   /**
-   * Upload đơn hàng
+   * Upload đơn hàng (Quan hệ phức tạp)
    */
   async uploadOrder(orderId: string, payload: any) {
-    console.log(`[Sync] Đang đẩy đơn hàng ${orderId} lên máy chủ...`);
+    console.log(`[Sync] Đang đồng bộ hóa đơn hàng quan hệ ${orderId} lên máy chủ dã chiến...`);
     // Giả lập API call
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Cập nhật trạng thái trong bảng Orders
-    db.runSync('UPDATE Orders SET status = "synced" WHERE id = ?', [orderId]);
+    db.runSync("UPDATE Orders SET status = 'synced', sync_status = 'synced' WHERE id = ?", [orderId]);
     return true;
   },
 
@@ -75,7 +81,6 @@ export const SyncService = {
 
     try {
       // Giả lập upload Multipart Form Data
-      // Trong thực tế: const formData = new FormData(); formData.append('file', {uri: post.media_url, ...});
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // 1. Cập nhật trạng thái Database
@@ -89,6 +94,30 @@ export const SyncService = {
       console.error(`[Sync] Lỗi upload media cho post ${postId}:`, err);
       return false;
     }
+  },
+
+  /**
+   * Đồng bộ đơn khiếu nại (Appeals)
+   */
+  async submitAppeal(appealId: string, payload: any) {
+    console.log(`[Sync] Đang đồng bộ khiếu nại chiến tích ${appealId} lên máy chủ...`);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Cập nhật trạng thái Appeals cục bộ
+    db.runSync("UPDATE Appeals SET sync_status = 'synced', status = 'resolved' WHERE id = ?", [appealId]);
+    return true;
+  },
+
+  /**
+   * Đồng bộ tin nhắn (Messages)
+   */
+  async sendMessage(messageId: string, payload: any) {
+    console.log(`[Sync] Đang gửi tin nhắn dã chiến ${messageId} lên máy chủ dã chiến...`);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    // Cập nhật trạng thái tin nhắn cục bộ
+    db.runSync("UPDATE Messages SET sync_status = 'synced' WHERE id = ?", [messageId]);
+    return true;
   }
 };
 

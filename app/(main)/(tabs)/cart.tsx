@@ -9,6 +9,7 @@ import { useCartStore } from '../../../store/cart';
 import { TacticalButton } from '../../../components/ui/TacticalButton';
 import { useAuthStore } from '../../../store/auth';
 import { db } from '../../../lib/storage/sqlite';
+import { TacticalImage } from '../../../components/ui/TacticalImage';
 
 export default function CartScreen() {
   const navigation = useNavigation();
@@ -70,38 +71,112 @@ export default function CartScreen() {
       const newBalance = balance - total;
       const now = new Date().toISOString();
       const orderId = `ORD_${Date.now()}`;
+      
+      const firstItem = items[0];
+      const sellerId = firstItem.seller_id;
+      const shipFee = 15; // Phí vận chuyển tác chiến cố định
 
-      // Database Transaction Logic from .agents/marketplace_logic.md
+      // Database Transaction Logic - Đảm bảo tính nhất quán dã chiến
       db.execSync('BEGIN TRANSACTION;');
       
       try {
-        // 1. Deduct Balance
+        // 1. Khấu trừ số dư tài khoản của chiến sĩ
         db.runSync('UPDATE Users SET virtual_balance = ? WHERE id = ?', [newBalance, user.id]);
 
-        // 2. Create Orders & SyncQueue entries
+        // Cập nhật số dư trong bảng ví tiền Wallets
+        db.runSync('UPDATE Wallets SET balance = ? WHERE user_id = ?', [newBalance, user.id]);
+
+        // 2. Ghi hóa đơn chính (Orders) kèm Tọa độ GPS giả lập dã chiến
+        db.runSync(
+          `INSERT INTO Orders (
+            id, buyer_id, buyer_coordinates_x, buyer_coordinates_y, buyer_coordinates_description,
+            seller_id, seller_coordinates_x, seller_coordinates_y, seller_coordinates_description,
+            status, total_price, shipping_fee, sync_status, created_at, product_id, quantity
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+          [
+            orderId, 
+            user.id, 
+            20.8449, // Outpost Delta Latitude
+            106.6881, // Outpost Delta Longitude
+            'Tiền đồn Hải Phòng - Outpost Delta-7',
+            sellerId,
+            21.0285, // Depot Bravo Latitude
+            105.8542, // Depot Bravo Longitude
+            'Tổng kho quân khu Thủ đô - Base Bravo-1',
+            'pending_sync',
+            total,
+            shipFee,
+            'pending_sync',
+            now,
+            firstItem.product_id, // Tương thích ngược dòng cũ
+            firstItem.quantity    // Tương thích ngược dòng cũ
+          ]
+        );
+
+        // 3. Ghi chi tiết các mặt hàng vào bảng OrderItems (Quan hệ 1-N)
         for (const item of items) {
-          const subOrderId = `${orderId}_${item.product_id}`;
+          const itemId = `OI_${orderId}_${item.product_id}_${item.variant_id || 'none'}`;
           db.runSync(
-            'INSERT INTO Orders (id, product_id, quantity, total_price, buyer_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [subOrderId, item.product_id, item.quantity, item.price * item.quantity, user.id, 'pending_sync', now]
+            'INSERT INTO OrderItems (id, order_id, product_id, variant_id, price, quantity) VALUES (?, ?, ?, ?, ?, ?);',
+            [itemId, orderId, item.product_id, item.variant_id || '', item.price, item.quantity]
           );
-          
-          db.runSync(
-            'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-            [`SQ_${subOrderId}`, 'ORDER_UPLOAD', subOrderId, JSON.stringify(item), now]
-          );
+
+          // Trừ trực tiếp kho cục bộ của variant (nếu khớp)
+          if (item.variant_id) {
+            db.runSync(
+              'UPDATE ProductVariants SET stock = MAX(0, stock - ?) WHERE id = ?;',
+              [item.quantity, item.variant_id]
+            );
+          } else {
+            db.runSync(
+              'UPDATE Products SET stock = MAX(0, stock - ?) WHERE id = ?;',
+              [item.quantity, item.product_id]
+            );
+          }
         }
+
+        // 4. Tạo giao dịch tài chính ghi lại lịch sử thanh toán
+        const txId = `TX_${Date.now()}`;
+        db.runSync(
+          'INSERT INTO Transactions (id, wallet_id, type, amount, status, description, order_id, created_at) VALUES (?, (SELECT id FROM Wallets WHERE user_id = ?), ?, ?, ?, ?, ?, ?);',
+          [txId, user.id, 'SPEND', total, 'completed', `Thanh toán đơn hàng quân nhu ${orderId}`, orderId, now]
+        );
+
+        // 5. Đưa tác vụ đồng bộ hóa ORDER_UPLOAD vào hàng đợi ngoại tuyến SyncQueue (Đầy đủ quan hệ)
+        const syncPayload = {
+          id: orderId,
+          buyer_id: user.id,
+          buyer_coordinates: { x: 20.8449, y: 106.6881, description: 'Tiền đồn Hải Phòng - Outpost Delta-7' },
+          seller_id: sellerId,
+          seller_coordinates: { x: 21.0285, y: 105.8542, description: 'Tổng kho quân khu Thủ đô - Base Bravo-1' },
+          total_price: total,
+          shipping_fee: shipFee,
+          created_at: now,
+          items: items.map(item => ({
+            product_id: item.product_id,
+            variant_id: item.variant_id || null,
+            variant_title: item.variant_title || null,
+            price: item.price,
+            quantity: item.quantity,
+            title: item.title
+          }))
+        };
+
+        db.runSync(
+          'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?);',
+          [`SQ_${orderId}`, 'ORDER_UPLOAD', orderId, JSON.stringify(syncPayload), now]
+        );
 
         db.execSync('COMMIT;');
         
-        // 3. Update Local State
+        // 6. Cập nhật state nội bộ ứng dụng
         setBalance(newBalance);
         updateUser({ virtual_balance: newBalance });
         clearCart();
         
-        // 4. Success Navigation
+        // 7. Chuyển hướng sang màn hình thành công
         router.replace({
-          pathname: '/(main)/order-success',
+          pathname: '/(main)/order-success' as any,
           params: { orderId }
         });
 
@@ -111,8 +186,8 @@ export default function CartScreen() {
       }
       
     } catch (err) {
-      console.error(err);
-      Alert.alert('LỖI HỆ THỐNG', 'Không thể khởi tạo lệnh mua hàng. Vui lòng thử lại sau.');
+      console.error('Lỗi giao dịch đặt hàng dã chiến:', err);
+      Alert.alert('LỖI HỆ THỐNG', 'Không thể khởi tạo lệnh mua hàng dã chiến. Vui lòng thử lại sau.');
     }
   };
 
@@ -133,16 +208,21 @@ export default function CartScreen() {
         <>
           <ScrollView contentContainerStyle={styles.container}>
             {items.map(item => (
-              <View key={item.product_id} style={styles.cartItem}>
-                <Image source={{ uri: item.image }} style={styles.itemImage} />
+              <View key={item.id} style={styles.cartItem}>
+                <TacticalImage uri={item.image} categoryId={item.product_id} style={styles.itemImage} />
                 <View style={styles.itemInfo}>
-                  <Text style={styles.itemTitle}>{item.title.toUpperCase()}</Text>
+                  <View>
+                    <Text style={styles.itemTitle}>{item.title.toUpperCase()}</Text>
+                    {item.variant_title && (
+                      <Text style={styles.itemVariant}>PHÂN LOẠI: {item.variant_title.toUpperCase()}</Text>
+                    )}
+                  </View>
                   <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} XU</Text>
                   
                   <View style={styles.quantityRow}>
-                    <TacticalButton variant="outline" text="-" size="sm" onPress={() => updateQuantity(item.product_id, item.quantity - 1)} />
+                    <TacticalButton variant="outline" text="-" size="sm" onPress={() => updateQuantity(item.id, item.quantity - 1)} />
                     <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <TacticalButton variant="outline" text="+" size="sm" onPress={() => updateQuantity(item.product_id, item.quantity + 1)} />
+                    <TacticalButton variant="outline" text="+" size="sm" onPress={() => updateQuantity(item.id, item.quantity + 1)} />
                   </View>
                 </View>
               </View>
@@ -218,6 +298,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: UI_CONFIG.colors.text,
     letterSpacing: 1,
+  },
+  itemVariant: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: UI_CONFIG.colors.textSecondary,
+    letterSpacing: 0.5,
+    marginTop: 2,
   },
   itemPrice: {
     color: UI_CONFIG.colors.primary,

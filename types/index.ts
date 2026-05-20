@@ -78,6 +78,8 @@ export interface ProductListItem {
 export interface CartItem {
   id: string;           // local id (uuid)
   product_id: string;
+  variant_id?: string;  // Biến thể sản phẩm (Kích cỡ/Màu sắc)
+  variant_title?: string; // Tên hiển thị của biến thể
   title: string;
   price: number;
   image?: string;

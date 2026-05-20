@@ -12,6 +12,7 @@ import { Button } from '../../components/ui/Button';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { useAuthStore } from '../../store/auth';
 import { Input } from '../../components/ui/Input';
+import { TacticalImage } from '../../components/ui/TacticalImage';
 
 export default function DetailScreen() {
   const router = useRouter();
@@ -125,7 +126,7 @@ export default function DetailScreen() {
         onPressRight={() => router.push('/(main)/(tabs)/cart')}
       />
       <ScrollView contentContainerStyle={styles.container}>
-        <Image source={{ uri: product.images[0] }} style={styles.imagePlaceholder} />
+        <TacticalImage uri={product.images[0]} categoryId={product.category_id} style={styles.imagePlaceholder} />
         
         <View style={styles.infoContainer}>
           <Text style={styles.title}>{product.title}</Text>

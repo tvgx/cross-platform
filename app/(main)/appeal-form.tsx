@@ -7,12 +7,14 @@ import { TacticalButton } from '../../components/ui/TacticalButton';
 import { Input } from '../../components/ui/Input';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { db } from '../../lib/storage/sqlite';
+import { useAuthStore } from '../../store/auth';
 
 export default function AppealFormScreen() {
   const router = useRouter();
   const { postId } = useLocalSearchParams<{ postId: string }>();
   const [reason, setReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const user = useAuthStore(state => state.user);
 
   const handleSubmit = () => {
     if (!reason.trim()) {
@@ -31,27 +33,57 @@ export default function AppealFormScreen() {
   };
 
   const processAppeal = async () => {
+    if (!user) {
+      Alert.alert('LỖI XÁC THỰC', 'Không tìm thấy thông tin quân nhân đăng nhập.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       const now = new Date().toISOString();
+      const appealId = `APP_${postId}_${Date.now()}`;
       
-      // 1. Cập nhật trạng thái bài đăng
-      db.runSync(
-        'UPDATE Posts SET status = "appealing" WHERE id = ?',
-        [postId]
-      );
+      // Sử dụng giao dịch SQLite đảm bảo tính toàn vẹn
+      db.execSync('BEGIN TRANSACTION;');
+      
+      try {
+        // 1. Cập nhật trạng thái bài đăng sang khiếu nại
+        db.runSync(
+          'UPDATE Posts SET status = "appealing" WHERE id = ?',
+          [postId]
+        );
 
-      // 2. Thêm vào hàng đợi đồng bộ (để báo cáo lên server)
-      db.runSync(
-        'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
-        [`SQ_APPEAL_${postId}`, 'APPEAL_SUBMIT', postId, JSON.stringify({ reason }), now]
-      );
+        // 2. Thêm bản ghi khiếu nại vào bảng Appeals cục bộ
+        db.runSync(
+          'INSERT INTO Appeals (id, proof_id, user_id, reason, status, sync_status) VALUES (?, ?, ?, ?, ?, ?)',
+          [appealId, postId, user.id, reason, 'pending', 'pending_sync']
+        );
 
-      Alert.alert(
-        'BÁO CÁO ĐÃ GỬI',
-        'Đơn khiếu nại đã được ghi nhận. Vui lòng chờ phản hồi từ chỉ huy.',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+        // 3. Thêm vào hàng đợi đồng bộ với đầy đủ cấu trúc quan hệ để gửi lên server
+        const syncPayload = {
+          id: appealId,
+          proof_id: postId,
+          user_id: user.id,
+          reason: reason,
+          status: 'pending',
+          created_at: now
+        };
+
+        db.runSync(
+          'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?)',
+          [`SQ_${appealId}`, 'APPEAL_SUBMIT', appealId, JSON.stringify(syncPayload), now]
+        );
+
+        db.execSync('COMMIT;');
+
+        Alert.alert(
+          'BÁO CÁO ĐÃ GỬI',
+          'Đơn khiếu nại đã được ghi nhận vào cơ sở dữ liệu dã chiến. Vui lòng chờ phản hồi từ sĩ quan.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+      } catch (innerErr) {
+        db.execSync('ROLLBACK;');
+        throw innerErr;
+      }
     } catch (err) {
       console.error(err);
       Alert.alert('LỖI', 'Không thể gửi đơn khiếu nại lúc này.');

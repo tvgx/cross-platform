@@ -29,7 +29,13 @@ const MAPPING = {
   'star': 'star',
   'person': 'person',
   'shield': 'shield',
-} as IconMapping;
+  'backpack': 'backpack',
+  'tshirt': 'checkroom',
+  'wrench': 'build',
+  'compass': 'explore',
+  'heart': 'medical-services',
+  'bolt': 'flash-on',
+} as any;
 
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.

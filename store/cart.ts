@@ -26,12 +26,12 @@ export const useCartStore = create<CartState>()(
       addItem: (item) =>
         set((state) => {
           const existing = state.items.find(
-            (i) => i.product_id === item.product_id,
+            (i) => i.product_id === item.product_id && i.variant_id === item.variant_id,
           );
           if (existing) {
             return {
               items: state.items.map((i) =>
-                i.product_id === item.product_id
+                i.product_id === item.product_id && i.variant_id === item.variant_id
                   ? { ...i, quantity: i.quantity + item.quantity }
                   : i,
               ),
