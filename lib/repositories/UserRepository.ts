@@ -123,5 +123,36 @@ export const UserRepository = {
     } catch (e) {
       console.error('[UserRepo] Lỗi ghi nhận giao dịch:', e);
     }
+  },
+
+  /**
+   * Lưu thông tin người dùng cục bộ vào SQLite.
+   */
+  saveUser(user: User): void {
+    try {
+      db.runSync(
+        `INSERT OR REPLACE INTO Users (id, username, full_name, fullname, avatar, rank, unit, virtual_balance, is_seller, phone, phonenumber, email, role, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          String(user.id),
+          user.username || '',
+          user.full_name || '',
+          user.full_name || '',
+          user.avatar || '',
+          user.rank || '',
+          user.unit || '',
+          user.virtual_balance || 0,
+          user.is_seller ? 1 : 0,
+          user.phone || '',
+          user.phone || '',
+          user.email || `offline_${user.id}@army.local`,
+          user.is_seller ? 'vendor' : (user.rank === 'Sĩ quan' || user.rank === 'officer' || user.rank === 'admin' ? 'officer' : 'soldier'),
+          user.created_at || new Date().toISOString()
+        ]
+      );
+      console.log(`[UserRepo] Đã lưu User ${user.id} (${user.username}) vào SQLite.`);
+    } catch (e) {
+      console.error('[UserRepo] Lỗi lưu user vào SQLite:', e);
+    }
   }
 };

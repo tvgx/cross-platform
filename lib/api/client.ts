@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getStoredJSON, removeStored } from '../storage/mmkv';
 import type { AuthTokens } from '../../types';
+import { useNetworkStore } from '../../store/network';
 
 // Set EXPO_PUBLIC_API_URL in your .env file.
 const BASE_URL =
@@ -38,7 +39,7 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// ─── Response interceptor: handle 401 ────────────────────────────────────────
+// ─── Response interceptor: handle 401 & Network Errors ─────────────────────────
 
 apiClient.interceptors.response.use(
   (response) => {
@@ -59,6 +60,9 @@ apiClient.interceptors.response.use(
       // and triggers a logout on next render.
       removeStored('auth_tokens');
       removeStored('auth-storage');  // zustand persist key
+    } else if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) {
+      // If it's a network error or timeout, we might want to flag the backend as dead
+      useNetworkStore.getState().setBackendAlive(false);
     }
     return Promise.reject(error);
   },
@@ -72,6 +76,17 @@ export async function apiCall<T>(
   data?: unknown,
   params?: Record<string, unknown>,
 ): Promise<T> {
+  const networkStore = useNetworkStore.getState();
+  
+  if (!networkStore.isBackendAlive) {
+    console.log(`[API Client] Backend is marked as dead (Offline Mode). Pinging health check in background...`);
+    // Ping background to recover if backend is back up
+    networkStore.checkBackendHealth();
+    
+    // Throw error so caller falls back to Local immediately
+    return Promise.reject(new Error('Local Mode Only'));
+  }
+
   const response = await apiClient.request<T>({ method, url, data, params });
   return response.data;
 }

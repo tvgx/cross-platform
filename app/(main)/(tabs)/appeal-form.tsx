@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView } from 'react-native';
-import { SafeArea } from '../../components/layout/SafeArea';
-import { Header } from '../../components/navigation/Header';
-import { UI_CONFIG } from '../../constants/config';
-import { TacticalButton } from '../../components/ui/TacticalButton';
-import { Input } from '../../components/ui/Input';
+import { SafeArea } from '../../../components/layout/SafeArea';
+import { Header } from '../../../components/navigation/Header';
+import { UI_CONFIG } from '../../../constants/config';
+import { TacticalButton } from '../../../components/ui/TacticalButton';
+import { Input } from '../../../components/ui/Input';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useRepositories } from '../../context/RepositoryProvider';
-import { useAuthStore } from '../../store/auth';
+import { useRepositories } from '../../../context/RepositoryProvider';
+import { useAuthStore } from '../../../store/auth';
 
 export default function AppealFormScreen() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function AppealFormScreen() {
 
   const handleSubmit = () => {
     if (!reason.trim()) {
-      Alert.alert('THÔNG TIN THIẾU', 'Vui lòng nhập lý do khiếu nại.');
+      Alert.alert('THIẾU THÔNG TIN', 'Vui lòng nhập lý do.');
       return;
     }
 
@@ -35,7 +35,7 @@ export default function AppealFormScreen() {
 
   const processAppeal = async () => {
     if (!user) {
-      Alert.alert('LỖI XÁC THỰC', 'Không tìm thấy thông tin quân nhân đăng nhập.');
+      Alert.alert('LỖI', 'Vui lòng đăng nhập.');
       return;
     }
     setIsSubmitting(true);
@@ -50,13 +50,13 @@ export default function AppealFormScreen() {
       });
 
       Alert.alert(
-        'BÁO CÁO ĐÃ GỬI',
-        'Đơn khiếu nại đã được ghi nhận vào cơ sở dữ liệu dã chiến. Vui lòng chờ phản hồi từ sĩ quan.',
+        'THÀNH CÔNG',
+        'Đã gửi khiếu nại. Vui lòng chờ phản hồi.',
         [{ text: 'OK', onPress: () => router.back() }]
       );
     } catch (err) {
       console.error(err);
-      Alert.alert('LỖI', 'Không thể gửi đơn khiếu nại lúc này.');
+      Alert.alert('LỖI', 'Không gửi được khiếu nại.');
     } finally {
       setIsSubmitting(false);
     }
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   input: {
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     height: 150,
     textAlignVertical: 'top',
     padding: 15,

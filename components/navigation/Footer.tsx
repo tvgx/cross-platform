@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { UI_CONFIG } from '../../constants/config';
 
@@ -25,8 +26,12 @@ export const Footer = ({
   activeTab = 'index',
   onTabChange,
 }: FooterProps) => {
+  const insets = useSafeAreaInsets();
+  const paddingBottom = Math.max(insets.bottom, UI_CONFIG.spacing.xs);
+  const containerHeight = 60 + paddingBottom - UI_CONFIG.spacing.xs;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom, height: containerHeight }]}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
         return (
@@ -58,11 +63,9 @@ export const Footer = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    height: 60,
-    backgroundColor: UI_CONFIG.colors.white,
+    backgroundColor: UI_CONFIG.colors.surface,
     borderTopWidth: 1,
     borderTopColor: UI_CONFIG.colors.border,
-    paddingBottom: UI_CONFIG.spacing.xs, // for non-safearea devices as fallback
   },
   tabItem: {
     flex: 1,

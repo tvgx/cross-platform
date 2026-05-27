@@ -1,5 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCatalogStore } from '../../store/catalog';
 import { Ionicons } from '@expo/vector-icons';
 import { UI_CONFIG } from '../../constants/config';
 
@@ -22,49 +24,58 @@ export interface SidebarProps {
 
 export const Sidebar = ({
   userInfo = { name: 'Guest User', email: 'guest@example.com' },
-  menuItems = [
-    { key: 'home', label: 'Home', iconName: 'home-outline' },
-    { key: 'orders', label: 'My Orders', iconName: 'receipt-outline' },
-    { key: 'settings', label: 'Settings', iconName: 'settings-outline' },
-  ],
   onMenuSelect,
   activeItem = 'home',
 }: SidebarProps) => {
+  const insets = useSafeAreaInsets();
+  const categories = useCatalogStore(state => state.categories);
+
+  const topPadding = Math.max(insets.top, 60);
+  const bottomPadding = Math.max(insets.bottom, UI_CONFIG.spacing.md);
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topPadding }]}>
         <View style={styles.avatarPlaceholder} />
         <Text style={styles.userName}>{userInfo.name}</Text>
         <Text style={styles.userEmail}>{userInfo.email}</Text>
       </View>
 
-      <View style={styles.menuContainer}>
-        {menuItems.map((item) => {
-          const isActive = activeItem === item.key;
+      <ScrollView style={styles.menuContainer} contentContainerStyle={{ paddingBottom: bottomPadding }}>
+        {/* Core Items */}
+        <TouchableOpacity
+          style={[styles.menuItem, activeItem === 'home' && styles.activeMenuItem]}
+          onPress={() => onMenuSelect?.('home')}
+        >
+          <Ionicons name="home-outline" size={24} color={activeItem === 'home' ? UI_CONFIG.colors.primary : UI_CONFIG.colors.text} />
+          <Text style={[styles.menuLabel, { color: activeItem === 'home' ? UI_CONFIG.colors.primary : UI_CONFIG.colors.text }]}>Trang chủ</Text>
+        </TouchableOpacity>
+
+
+        <Text style={styles.sectionHeader}>Danh mục</Text>
+
+        {/* Dynamic Categories */}
+        {categories.map((cat) => {
+          const itemKey = `cat_${cat.id}`;
+          const isActive = activeItem === itemKey;
           return (
             <TouchableOpacity
-              key={item.key}
+              key={itemKey}
               style={[styles.menuItem, isActive && styles.activeMenuItem]}
-              onPress={() => onMenuSelect?.(item.key)}
+              onPress={() => onMenuSelect?.(itemKey)}
             >
               <Ionicons
-                name={item.iconName}
+                name={(cat.icon as any) || 'folder-outline'}
                 size={24}
                 color={isActive ? UI_CONFIG.colors.primary : UI_CONFIG.colors.text}
               />
-              <Text
-                style={[
-                  styles.menuLabel,
-                  { color: isActive ? UI_CONFIG.colors.primary : UI_CONFIG.colors.text },
-                ]}
-              >
-                {item.label}
+              <Text style={[styles.menuLabel, { color: isActive ? UI_CONFIG.colors.primary : UI_CONFIG.colors.text }]}>
+                {cat.name}
               </Text>
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -72,13 +83,13 @@ export const Sidebar = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: UI_CONFIG.colors.white,
+    backgroundColor: UI_CONFIG.colors.surface,
   },
   header: {
     padding: UI_CONFIG.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: UI_CONFIG.colors.border,
-    paddingTop: 60, // approximate top padding for drawer
+    paddingTop: 60, // overwritten via inline style based on safe area
   },
   avatarPlaceholder: {
     width: 60,
@@ -107,10 +118,23 @@ const styles = StyleSheet.create({
     gap: UI_CONFIG.spacing.md,
   },
   activeMenuItem: {
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
   },
   menuLabel: {
     fontSize: UI_CONFIG.typography.sizes.md,
     fontWeight: UI_CONFIG.typography.weights.medium,
   },
+  divider: {
+    height: 1,
+    backgroundColor: UI_CONFIG.colors.border,
+    marginVertical: UI_CONFIG.spacing.sm,
+  },
+  sectionHeader: {
+    fontSize: UI_CONFIG.typography.sizes.xs,
+    fontWeight: 'bold',
+    color: UI_CONFIG.colors.textSecondary,
+    textTransform: 'uppercase',
+    paddingHorizontal: UI_CONFIG.spacing.lg,
+    paddingVertical: UI_CONFIG.spacing.sm,
+  }
 });

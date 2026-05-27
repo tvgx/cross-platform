@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, FlatList, Dimensions, Platform, RefreshControl, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Platform, RefreshControl, StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
-import { MOCK_CATEGORIES } from '../../lib/mockDB';
-import { ProductListItem } from '../../types';
-import { IconSymbol } from '../../components/ui/icon-symbol';
-import { useRouter, Href } from 'expo-router';
-import { TacticalImage } from '../../components/ui/TacticalImage';
-import { formatCurrency } from '../../lib/utils/format';
+
+import { ProductCard } from '../../components/product/ProductCard';
 import { ProductRepository } from '../../lib/repositories/ProductRepository';
 import { useCatalogStore } from '../../store/catalog';
 
+import { ProductListItem, Category } from '../../types';
+import { useRouter } from 'expo-router';
+import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export function HomeView() {
-  const router = useRouter();
   const storeProducts = useCatalogStore(state => state.products);
   const categories = useCatalogStore(state => state.categories);
+  const router = useRouter();
 
   const [productsList, setProductsList] = useState<ProductListItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -58,29 +60,26 @@ export function HomeView() {
     loadData(true);
   };
 
+  const handleSearch = (query: string) => {
+    // Navigate to a search page or filter the current list.
+    console.log('Searching for:', query);
+    // Placeholder navigation, you can adjust the route as needed
+    // router.push({ pathname: '/search', params: { q: query } });
+  };
+
+  const handleCategoryPress = (category: Category) => {
+    // router.push({ pathname: '/category/[id]', params: { id: category.id } });
+    console.log('Category pressed:', category.name);
+  };
+
   const renderProduct = ({ item }: { item: ProductListItem }) => (
-    <TouchableOpacity 
-      style={styles.productCard}
-      onPress={() => router.push(`/(main)/detail?id=${item.id}` as Href)}
-    >
-      <TacticalImage uri={item.images[0]} categoryId={item.category_id} style={styles.productImage} />
-      <View style={styles.productInfo}>
-        <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
-        <View style={styles.productFooter}>
-          <Text style={styles.soldCount}>Đã bán {item.sold_count}</Text>
-          <View style={styles.ratingContainer}>
-            <IconSymbol name="star.fill" size={12} color="#FFD700" />
-            <Text style={styles.ratingText}>{item.rating}</Text>
-          </View>
-        </View>
-      </View>
-    </TouchableOpacity>
+    <ProductCard item={item} />
   );
 
   return (
-    <SafeArea edges={['top']} style={{ flex: 1 }}>
-      <CustomAppBar title="Army+ E-commerce" />
+    <SwipeWrapper currentTab="index">
+      <SafeArea edges={['top']} style={{ flex: 1 }}>
+        <CustomAppBar title="Army+" showSearch={true} onSearch={handleSearch} />
       <FlatList
         data={productsList}
         keyExtractor={item => item.id}
@@ -107,25 +106,40 @@ export function HomeView() {
                 style={styles.heroImage} 
               />
               <View style={styles.heroOverlay}>
-                <Text style={styles.heroTitle}>Giảm Giá Mùa Hè</Text>
-                <Text style={styles.heroSubtitle}>Lên đến 50% cho Quân tư trang</Text>
+                <Text style={styles.heroTitle}>Army+</Text>
               </View>
             </View>
 
-            {/* Categories */}
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Danh mục</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
-                {(categories && categories.length > 0 ? categories : MOCK_CATEGORIES).map(cat => (
-                  <TouchableOpacity key={cat.id} style={styles.categoryItem}>
-                    <View style={styles.categoryIconContainer}>
-                      <IconSymbol name={(cat.icon || "folder") as any} size={24} color={UI_CONFIG.colors.primary} />
-                    </View>
-                    <Text style={styles.categoryName}>{cat.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+            {/* Categories Slider */}
+            {categories && categories.length > 0 && (
+              <View style={styles.categoriesSection}>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoriesScrollContent}
+                >
+                  {categories.map((cat, index) => (
+                    <TouchableOpacity 
+                      key={cat.id || index.toString()} 
+                      style={styles.categoryItem}
+                      onPress={() => handleCategoryPress(cat)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.categoryIconContainer}>
+                        {cat.image_url ? (
+                          <Image source={{ uri: cat.image_url }} style={styles.categoryImage} />
+                        ) : (
+                          <Image source={{ uri: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(cat.name) + '&background=random&color=fff' }} style={styles.categoryImage} />
+                        )}
+                      </View>
+                      <Text style={styles.categoryText} numberOfLines={2}>
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
             {/* Products Grid Title */}
             <View style={styles.sectionContainer}>
@@ -135,7 +149,8 @@ export function HomeView() {
           </>
         }
       />
-    </SafeArea>
+      </SafeArea>
+    </SwipeWrapper>
   );
 }
 
@@ -145,9 +160,9 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 200,
+    height: 160,
     position: 'relative',
-    marginBottom: UI_CONFIG.spacing.lg,
+    backgroundColor: UI_CONFIG.colors.surface,
   },
   heroImage: {
     width: '100%',
@@ -156,20 +171,57 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
-    padding: UI_CONFIG.spacing.lg,
+    alignItems: 'center',
   },
   heroTitle: {
     color: '#fff',
-    fontSize: UI_CONFIG.typography.sizes.xxl,
-    fontWeight: 'bold',
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: {width: -1, height: 1},
+    textShadowRadius: 10
   },
-  heroSubtitle: {
-    color: '#fff',
-    fontSize: UI_CONFIG.typography.sizes.md,
-    marginTop: UI_CONFIG.spacing.xs,
+  categoriesSection: {
+    backgroundColor: UI_CONFIG.colors.background,
+    paddingVertical: UI_CONFIG.spacing.md,
+    marginBottom: UI_CONFIG.spacing.sm,
   },
+  categoriesScrollContent: {
+    paddingHorizontal: UI_CONFIG.spacing.md,
+    gap: UI_CONFIG.spacing.md,
+  },
+  categoryItem: {
+    width: SCREEN_WIDTH * 0.2, // ~20% of screen width per item (5 items visible)
+    alignItems: 'center',
+  },
+  categoryIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: UI_CONFIG.colors.border,
+  },
+  categoryImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  categoryText: {
+    fontSize: 11,
+    color: UI_CONFIG.colors.text,
+    textAlign: 'center',
+    fontWeight: '500',
+    lineHeight: 14,
+  },
+
   sectionContainer: {
     paddingHorizontal: UI_CONFIG.spacing.md,
     marginBottom: UI_CONFIG.spacing.xl,
@@ -180,80 +232,10 @@ const styles = StyleSheet.create({
     marginBottom: UI_CONFIG.spacing.md,
     color: UI_CONFIG.colors.text,
   },
-  categoryScroll: {
-    gap: UI_CONFIG.spacing.lg,
-    paddingRight: UI_CONFIG.spacing.md,
-  },
-  categoryItem: {
-    alignItems: 'center',
-    width: 80,
-  },
-  categoryIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: UI_CONFIG.colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: UI_CONFIG.spacing.xs,
-    borderWidth: 1,
-    borderColor: UI_CONFIG.colors.border,
-  },
-  categoryName: {
-    fontSize: UI_CONFIG.typography.sizes.sm,
-    textAlign: 'center',
-  },
   productList: {
     gap: UI_CONFIG.spacing.md,
   },
   productRow: {
     gap: UI_CONFIG.spacing.md,
-  },
-  productCard: {
-    flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: UI_CONFIG.borderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: UI_CONFIG.colors.border,
-    minWidth: Platform.OS === 'web' ? 200 : '45%',
-  },
-  productImage: {
-    width: '100%',
-    height: 150,
-    resizeMode: 'cover',
-  },
-  productInfo: {
-    padding: UI_CONFIG.spacing.sm,
-  },
-  productTitle: {
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: '500',
-    marginBottom: UI_CONFIG.spacing.xs,
-    height: 40, // fix height for 2 lines
-  },
-  productPrice: {
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: 'bold',
-    color: UI_CONFIG.colors.primary,
-    marginBottom: UI_CONFIG.spacing.xs,
-  },
-  productFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  soldCount: {
-    fontSize: UI_CONFIG.typography.sizes.xs,
-    color: UI_CONFIG.colors.textSecondary,
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  ratingText: {
-    fontSize: UI_CONFIG.typography.sizes.xs,
-    color: UI_CONFIG.colors.textSecondary,
   }
 });

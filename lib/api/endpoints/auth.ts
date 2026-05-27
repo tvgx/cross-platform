@@ -2,36 +2,33 @@ import { apiCall } from '../client';
 import type { ApiResponse, AuthTokens, User } from '../../../types';
 
 export const authApi = {
-  login: (body: { username: string; password: string }) =>
-    apiCall<ApiResponse<{ tokens: AuthTokens; user: User }>>('POST', '/login', body),
+  login: (body: { phone_number: string; password: string }) =>
+    apiCall<ApiResponse<{ tokens: AuthTokens; user: User }>>('POST', '/auth/login', body),
 
   logout: () =>
-    apiCall<ApiResponse<null>>('POST', '/logout'),
+    apiCall<ApiResponse<null>>('POST', '/auth/logout'),
 
   signup: (body: {
-    username: string;
+    phone_number: string;
     password: string;
-    full_name: string;
-    phone?: string;
-    rank?: string;
-    unit?: string;
-  }) => apiCall<ApiResponse<{ tokens: AuthTokens; user: User }>>('POST', '/signup', body),
+    uuid: string;
+  }) => apiCall<ApiResponse<{ tokens: AuthTokens; user: User }>>('POST', '/auth/signup', body),
 
   createResetCode: (body: { phone?: string; email?: string }) =>
-    apiCall<ApiResponse<null>>('POST', '/create_code_reset_password', body),
+    apiCall<ApiResponse<null>>('POST', '/auth/create_code_reset_password', body),
 
   checkResetCode: (body: { code: string; phone?: string; email?: string }) =>
-    apiCall<ApiResponse<{ reset_token: string }>>('POST', '/check_code_reset_password', body),
+    apiCall<ApiResponse<{ reset_token: string }>>('POST', '/auth/check_code_reset_password', body),
 
   resetPassword: (body: { reset_token: string; new_password: string }) =>
-    apiCall<ApiResponse<null>>('POST', '/reset_password', body),
+    apiCall<ApiResponse<null>>('POST', '/auth/reset_password', body),
 
   changePassword: (body: { old_password: string; new_password: string }) =>
-    apiCall<ApiResponse<null>>('POST', '/change_password', body),
+    apiCall<ApiResponse<null>>('POST', '/auth/change_password', body),
 
   changeInfoAfterSignup: (body: Partial<User>) =>
-    apiCall<ApiResponse<User>>('POST', '/change_info_after_signup', body),
+    apiCall<ApiResponse<User>>('POST', '/auth/change_info_after_signup', body),
 
   setDevToken: (body: { dev_token: string; platform: 'ios' | 'android' }) =>
-    apiCall<ApiResponse<null>>('POST', '/set_devtoken', body),
+    apiCall<ApiResponse<null>>('POST', '/dev_tokens/set_devtoken', body),
 };

@@ -10,6 +10,7 @@ import { TacticalButton } from '../../../components/ui/TacticalButton';
 import { useAuthStore } from '../../../store/auth';
 import { useRepositories } from '../../../context/RepositoryProvider';
 import { TacticalImage } from '../../../components/ui/TacticalImage';
+import { SwipeWrapper } from '../../../components/navigation/SwipeWrapper';
 
 export default function CartScreen() {
   const navigation = useNavigation();
@@ -42,17 +43,17 @@ export default function CartScreen() {
 
   const handleCheckout = () => {
     if (!user) {
-      Alert.alert('TRUY CẬP BỊ TỪ CHỐI', 'Vui lòng xác thực danh tính để thanh toán.');
+      Alert.alert('BỊ TỪ CHỐI', 'Vui lòng đăng nhập.');
       return;
     }
     
     if (items.length === 0) {
-      Alert.alert('GIỎ HÀNG TRỐNG', 'Lệnh mua hàng không có nội dung.');
+      Alert.alert('GIỎ HÀNG TRỐNG', 'Chưa chọn mặt hàng nào.');
       return;
     }
 
     if (balance < total) {
-      Alert.alert('SỐ DƯ KHÔNG ĐỦ', 'Ngân sách virtual không đủ. Hãy gửi thêm chứng minh chiến tích (PoCA) để nhận thêm quân nhu.');
+      Alert.alert('KHÔNG ĐỦ ĐIỂM', 'Không đủ điểm chiến tích.');
       return;
     }
 
@@ -66,15 +67,18 @@ export default function CartScreen() {
     );
   };
 
-  const processCheckout = () => {
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const processCheckout = async () => {
     if (!user) return;
+    setIsProcessing(true);
     try {
       const newBalance = balance - total;
       const firstItem = items[0];
       const sellerId = firstItem.seller_id;
       const shipFee = 15; // Phí vận chuyển tác chiến cố định
 
-      const orderId = orderRepository.checkoutOrder({
+      const orderId = await orderRepository.checkoutOrder({
         userId: user.id,
         items: items.map(item => ({
           product_id: item.product_id,
@@ -104,74 +108,79 @@ export default function CartScreen() {
       
     } catch (err) {
       console.error('Lỗi giao dịch đặt hàng dã chiến:', err);
-      Alert.alert('LỖI HỆ THỐNG', 'Không thể khởi tạo lệnh mua hàng dã chiến. Vui lòng thử lại sau.');
+      Alert.alert('LỖI HỆ THỐNG', 'Lỗi kết nối Tổng kho. Hiển thị dự phòng cục bộ.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
-    <SafeArea edges={['top']}>
-      <Header 
-        leftIcon="menu" 
-        onPressLeft={() => navigation.dispatch(DrawerActions.openDrawer())} 
-        title="Quân Nhu / Giỏ Hàng"
-        rightIcon="notifications"
-      />
-      
-      {items.length === 0 ? (
-        <View style={styles.center}>
-          <Text style={styles.emptyText}>KHÔNG CÓ LỆNH MUA NÀO ĐANG CHỜ</Text>
-        </View>
-      ) : (
-        <>
-          <ScrollView contentContainerStyle={styles.container}>
-            {items.map(item => (
-              <View key={item.id} style={styles.cartItem}>
-                <TacticalImage uri={item.image} categoryId={item.product_id} style={styles.itemImage} />
-                <View style={styles.itemInfo}>
-                  <View>
-                    <Text style={styles.itemTitle}>{item.title.toUpperCase()}</Text>
-                    {item.variant_title && (
-                      <Text style={styles.itemVariant}>PHÂN LOẠI: {item.variant_title.toUpperCase()}</Text>
-                    )}
-                  </View>
-                  <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} XU</Text>
-                  
-                  <View style={styles.quantityRow}>
-                    <TacticalButton variant="outline" text="-" size="sm" onPress={() => updateQuantity(item.id, item.quantity - 1)} />
-                    <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <TacticalButton variant="outline" text="+" size="sm" onPress={() => updateQuantity(item.id, item.quantity + 1)} />
+    <SwipeWrapper currentTab="cart">
+      <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: UI_CONFIG.colors.background }}>
+        <Header 
+          leftIcon="menu" 
+          onPressLeft={() => navigation.dispatch(DrawerActions.openDrawer())} 
+          title="Quân Nhu / Giỏ Hàng"
+          rightIcon="notifications"
+        />
+        
+        {items.length === 0 ? (
+          <View style={styles.center}>
+            <Text style={styles.emptyText}>KHÔNG CÓ LỆNH MUA NÀO ĐANG CHỜ</Text>
+          </View>
+        ) : (
+          <>
+            <ScrollView contentContainerStyle={styles.container}>
+              {items.map(item => (
+                <View key={item.id} style={styles.cartItem}>
+                  <TacticalImage uri={item.image} categoryId={item.product_id} style={styles.itemImage} />
+                  <View style={styles.itemInfo}>
+                    <View>
+                      <Text style={styles.itemTitle}>{item.title.toUpperCase()}</Text>
+                      {item.variant_title && (
+                        <Text style={styles.itemVariant}>PHÂN LOẠI: {item.variant_title.toUpperCase()}</Text>
+                      )}
+                    </View>
+                    <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} XU</Text>
+                    
+                    <View style={styles.quantityRow}>
+                      <TacticalButton variant="outline" text="-" size="sm" onPress={() => updateQuantity(item.id, item.quantity - 1)} />
+                      <Text style={styles.qtyText}>{item.quantity}</Text>
+                      <TacticalButton variant="outline" text="+" size="sm" onPress={() => updateQuantity(item.id, item.quantity + 1)} />
+                    </View>
                   </View>
                 </View>
-              </View>
-            ))}
-          </ScrollView>
+              ))}
+            </ScrollView>
 
-          <View style={styles.footer}>
-            <View style={styles.glassContainer}>
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceLabel}>NGÂN SÁCH HIỆN TẠI:</Text>
-                <Text style={styles.balanceValue}>{balance.toLocaleString('vi-VN')} XU</Text>
-              </View>
-              
-              <View style={styles.balanceRow}>
-                <Text style={styles.balanceLabel}>TỔNG CHI PHÍ:</Text>
-                <Text style={[styles.balanceValue, { color: UI_CONFIG.colors.primary }]}>
-                  {total.toLocaleString('vi-VN')} XU
-                </Text>
-              </View>
+            <View style={styles.footer}>
+              <View style={styles.glassContainer}>
+                <View style={styles.balanceRow}>
+                  <Text style={styles.balanceLabel}>NGÂN SÁCH HIỆN TẠI:</Text>
+                  <Text style={styles.balanceValue}>{balance.toLocaleString('vi-VN')} XU</Text>
+                </View>
+                
+                <View style={styles.balanceRow}>
+                  <Text style={styles.balanceLabel}>TỔNG CHI PHÍ:</Text>
+                  <Text style={[styles.balanceValue, { color: UI_CONFIG.colors.primary }]}>
+                    {total.toLocaleString('vi-VN')} XU
+                  </Text>
+                </View>
 
-              <TacticalButton 
-                text="XÁC NHẬN THANH TOÁN" 
-                onPress={handleCheckout} 
-                fullWidth
-                size="lg"
-                style={styles.checkoutBtn}
-              />
+                <TacticalButton 
+                  text={isProcessing ? "ĐANG XỬ LÝ..." : "XÁC NHẬN THANH TOÁN"} 
+                  onPress={handleCheckout} 
+                  disabled={isProcessing}
+                  fullWidth
+                  size="lg"
+                  style={styles.checkoutBtn}
+                />
+              </View>
             </View>
-          </View>
-        </>
-      )}
-    </SafeArea>
+          </>
+        )}
+      </SafeArea>
+    </SwipeWrapper>
   );
 }
 
@@ -193,7 +202,7 @@ const styles = StyleSheet.create({
   },
   cartItem: {
     flexDirection: 'row',
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     padding: UI_CONFIG.spacing.sm,
     borderRadius: 4,
     borderWidth: 1,
@@ -240,11 +249,11 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: UI_CONFIG.spacing.md,
-    backgroundColor: UI_CONFIG.colors.dark,
+    backgroundColor: UI_CONFIG.colors.background,
   },
   glassContainer: {
     padding: UI_CONFIG.spacing.lg,
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',

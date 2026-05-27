@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, Alert } from 'react-native';
-import { SafeArea } from '../../components/layout/SafeArea';
-import { Header } from '../../components/navigation/Header';
-import { Comments, CommentItem } from '../../components/Comments';
-import { UI_CONFIG } from '../../constants/config';
+import { SafeArea } from '../../../components/layout/SafeArea';
+import { Header } from '../../../components/navigation/Header';
+import { Comments, CommentItem } from '../../../components/Comments';
+import { UI_CONFIG } from '../../../constants/config';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useRepositories } from '../../context/RepositoryProvider';
-import { Product } from '../../types';
-import { useCartStore } from '../../store/cart';
-import { Button } from '../../components/ui/Button';
-import { IconSymbol } from '../../components/ui/icon-symbol';
-import { useAuthStore } from '../../store/auth';
-import { Input } from '../../components/ui/Input';
-import { TacticalImage } from '../../components/ui/TacticalImage';
+import { useRepositories } from '../../../context/RepositoryProvider';
+import { Product } from '../../../types';
+import { useCartStore } from '../../../store/cart';
+import { Button } from '../../../components/ui/Button';
+import { IconSymbol } from '../../../components/ui/icon-symbol';
+import { useAuthStore } from '../../../store/auth';
+import { Input } from '../../../components/ui/Input';
+import { TacticalImage } from '../../../components/ui/TacticalImage';
 
 export default function DetailScreen() {
   const router = useRouter();
@@ -150,7 +150,7 @@ export default function DetailScreen() {
               text={product.is_liked ? `Đã thích (${product.like_count})` : `Thích (${product.like_count})`} 
               onPress={handleToggleLike}
               style={{ flex: 1 }}
-              backgroundColor={product.is_liked ? UI_CONFIG.colors.primary : UI_CONFIG.colors.light}
+              backgroundColor={product.is_liked ? UI_CONFIG.colors.primary : UI_CONFIG.colors.surfaceLighter}
               textColor={product.is_liked ? UI_CONFIG.colors.white : UI_CONFIG.colors.text}
             />
             <Button 
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     height: 300,
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     resizeMode: 'cover'
   },
   infoContainer: {

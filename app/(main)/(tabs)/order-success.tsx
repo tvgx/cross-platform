@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { SafeArea } from '../../components/layout/SafeArea';
-import { UI_CONFIG } from '../../constants/config';
-import { TacticalButton } from '../../components/ui/TacticalButton';
+import { SafeArea } from '../../../components/layout/SafeArea';
+import { UI_CONFIG } from '../../../constants/config';
+import { TacticalButton } from '../../../components/ui/TacticalButton';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { IconSymbol } from '../../components/ui/icon-symbol';
+import { IconSymbol } from '../../../components/ui/icon-symbol';
 
 export default function OrderSuccessScreen() {
   const router = useRouter();
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     padding: UI_CONFIG.spacing.xl,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: UI_CONFIG.colors.dark,
+    backgroundColor: UI_CONFIG.colors.background,
   },
   iconContainer: {
     marginBottom: 30,
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   infoBox: {
     padding: 20,
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     borderRadius: 4,
     borderLeftWidth: 4,
     borderLeftColor: UI_CONFIG.colors.primary,

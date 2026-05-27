@@ -9,15 +9,15 @@ export interface PushSetting {
 }
 
 export const userApi = {
-  getUserInfo: (userId?: string) =>
-    apiCall<ApiResponse<User>>('GET', '/get_user_info', undefined, userId ? { user_id: userId } : undefined),
+  getUserInfo: (userId: number) =>
+    apiCall<ApiResponse<User>>('POST', '/users/get_user_info', { user_id: userId }),
 
   setUserInfo: (body: Partial<User>) =>
-    apiCall<ApiResponse<User>>('POST', '/set_user_info', body),
+    apiCall<ApiResponse<User>>('POST', '/users/set_user_info', body),
 
   getPushSetting: () =>
-    apiCall<ApiResponse<PushSetting>>('GET', '/get_push_setting'),
+    apiCall<ApiResponse<PushSetting>>('POST', '/push_settings/get_push_setting'),
 
   setPushSetting: (body: Partial<PushSetting>) =>
-    apiCall<ApiResponse<PushSetting>>('POST', '/set_push_setting', body),
+    apiCall<ApiResponse<PushSetting>>('POST', '/push_settings/set_push_setting', body),
 };

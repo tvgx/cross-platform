@@ -11,59 +11,59 @@ import type {
 
 export const ordersApi = {
   // Shipping
-  getShipFrom: () =>
-    apiCall<ApiResponse<ShipFrom[]>>('GET', '/get_ship_from'),
+  getShipFrom: (params?: { index: number; count: number; parent_id: number; level?: number }) =>
+    apiCall<ApiResponse<ShipFrom[]>>('GET', '/order/get_ship_from', undefined, params as Record<string, unknown>),
 
-  getShipFee: (params: { ship_from_id: string; ship_to: string }) =>
-    apiCall<ApiResponse<ShipFee>>('GET', '/get_ship_fee', undefined, params),
+  getShipFee: (params: { product_id: number; address_id: number }) =>
+    apiCall<ApiResponse<ShipFee>>('POST', '/order/get_ship_fee', params),
 
   // Order addresses
   getOrderAddresses: () =>
-    apiCall<ApiResponse<OrderAddress[]>>('GET', '/get_list_order_address'),
+    apiCall<ApiResponse<OrderAddress[]>>('GET', '/order/get_list_order_address'),
 
   addOrderAddress: (body: Omit<OrderAddress, 'id'>) =>
-    apiCall<ApiResponse<OrderAddress>>('POST', '/add_order_address', body),
+    apiCall<ApiResponse<OrderAddress>>('POST', '/order/add_order_address', body),
 
   editOrderAddress: (addressId: string, body: Partial<Omit<OrderAddress, 'id'>>) =>
-    apiCall<ApiResponse<OrderAddress>>('POST', '/edit_order_address', { address_id: addressId, ...body }),
+    apiCall<ApiResponse<OrderAddress>>('PATCH', `/order/update/${addressId}`, body),
 
   deleteOrderAddress: (addressId: string) =>
-    apiCall<ApiResponse<null>>('POST', '/delete_order_address', { address_id: addressId }),
+    apiCall<ApiResponse<null>>('DELETE', `/order/delete/${addressId}`),
 
   // Orders
   getOrderStatus: (orderId: string) =>
-    apiCall<ApiResponse<{ status: Order['status'] }>>('GET', '/get_order_status', undefined, { order_id: orderId }),
+    apiCall<ApiResponse<{ status: Order['status'] }>>('POST', '/order/get_order_status', { purchase_id: parseInt(orderId, 10) }),
 
   createOrder: (body: {
-    items: { product_id: string; quantity: number }[];
-    address_id: string;
-    note?: string;
-  }) => apiCall<ApiResponse<Order>>('POST', '/create_order', body),
+    items: { product_id: number; quantity: number }[];
+    source: string;
+    address_id: number;
+  }) => apiCall<ApiResponse<Order>>('POST', '/order/create_order', body),
 
-  getPurchases: (params?: { status?: Order['status']; page?: number; limit?: number }) =>
-    apiCall<ApiResponse<PaginatedResponse<Order>>>('GET', '/get_list_purchases', undefined, params as Record<string, unknown>),
+  getPurchases: (params?: { index: string; count: string; state?: string }) =>
+    apiCall<ApiResponse<PaginatedResponse<Order>>>('POST', '/order/get_list_purchases', params),
 
   getPurchase: (orderId: string) =>
-    apiCall<ApiResponse<Order>>('GET', '/get_purchase', undefined, { order_id: orderId }),
+    apiCall<ApiResponse<Order>>('POST', '/order/get_purchase', { id: orderId }),
 
   editPurchase: (orderId: string, body: Partial<Order>) =>
-    apiCall<ApiResponse<Order>>('POST', '/edit_purchase', { order_id: orderId, ...body }),
+    apiCall<ApiResponse<Order>>('POST', '/order/edit_purchase', { id: orderId, ...body }),
 
-  cancelOrder: (orderId: string, reason?: string) =>
-    apiCall<ApiResponse<null>>('POST', '/cancel_order', { order_id: orderId, reason }),
+  cancelOrder: (orderId: string, reason?: number) =>
+    apiCall<ApiResponse<null>>('POST', '/order/cancel_order', { id: orderId, reason }),
 
-  sellerMarkShipped: (orderId: string, trackingNumber?: string) =>
-    apiCall<ApiResponse<null>>('POST', '/seller_mark_as_shipped', { order_id: orderId, tracking_number: trackingNumber }),
+  sellerMarkShipped: (orderId: string, buyerId: string) =>
+    apiCall<ApiResponse<null>>('POST', '/order/seller_mark_as_shipped', { purchase_id: orderId, buyer_id: buyerId }),
 
   buyerConfirmReceived: (orderId: string) =>
-    apiCall<ApiResponse<null>>('POST', '/buyer_confirm_received', { order_id: orderId }),
+    apiCall<ApiResponse<null>>('POST', '/order/buyer_confirm_received', { purchase_id: orderId }),
 
   getOrderTimeline: (orderId: string) =>
-    apiCall<ApiResponse<OrderTimeline[]>>('GET', '/get_order_timeline', undefined, { order_id: orderId }),
+    apiCall<ApiResponse<OrderTimeline[]>>('POST', '/order/get_order_timeline', { purchase_id: orderId }),
 
-  setAcceptBuyer: (orderId: string, accept: boolean) =>
-    apiCall<ApiResponse<null>>('POST', '/set_accept_buyer', { order_id: orderId, accept }),
+  setAcceptBuyer: (orderId: string, buyerId: string, accept: boolean) =>
+    apiCall<ApiResponse<null>>('POST', '/order/set_accept_buyer', { purchase_id: orderId, buyer_id: buyerId, is_accept: accept ? 1 : 0 }),
 
-  refundOrder: (body: { order_id: string; reason: string }) =>
-    apiCall<ApiResponse<null>>('POST', '/refund_order', body),
+  refundOrder: (body: { purchase_id: string; reason: string; state?: string }) =>
+    apiCall<ApiResponse<null>>('POST', '/order/refund_order', body),
 };

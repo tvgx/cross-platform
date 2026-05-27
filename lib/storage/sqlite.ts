@@ -1,6 +1,5 @@
 import * as SQLite from 'expo-sqlite';
 import { Platform } from 'react-native';
-import { MOCK_PRODUCTS, MOCK_USERS } from '../mockDB'; // Import to seed initially
 
 let localDb: any;
 
@@ -83,7 +82,7 @@ if (Platform.OS === 'web') {
     }
   };
 } else {
-  localDb = SQLite.openDatabaseSync('army_db.db');
+  localDb = SQLite.openDatabaseSync('army_db_v2.db');
 }
 
 export const db = localDb as SQLite.SQLiteDatabase;
@@ -365,93 +364,11 @@ export const initDB = () => {
       );
     `);
 
-    // ─── SEED DATA NẾU RỖNG ───────────────────────────────────────────────────
-
-    // Seed Users
-    const userCount = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM Users');
-    if (userCount && userCount.count === 0) {
-      MOCK_USERS.forEach(user => {
-        db.runSync(
-          'INSERT INTO Users (id, username, full_name, fullname, avatar, rank, unit, virtual_balance, is_seller, phone, phonenumber, email, role, bio) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            user.id,
-            user.username,
-            user.full_name,
-            user.full_name,
-            user.avatar || '',
-            user.rank || '',
-            user.unit || '',
-            user.virtual_balance,
-            user.is_seller ? 1 : 0,
-            user.phone || '',
-            user.phone || '',
-            user.email || '',
-            user.is_seller ? 'vendor' : (user.rank === 'Sĩ quan' ? 'officer' : 'soldier'),
-            'Tác chiến dã chiến dũng cảm.'
-          ]
-        );
-      });
-    }
-
-    // Seed Wallets
-    const walletCount = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM Wallets');
-    if (walletCount && walletCount.count === 0) {
-      MOCK_USERS.forEach(user => {
-        db.runSync(
-          'INSERT INTO Wallets (user_id, balance) VALUES (?, ?)',
-          [user.id, user.virtual_balance]
-        );
-      });
-    }
-
-    // Seed RewardRules
-    const rulesCount = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM RewardRules');
-    if (rulesCount && rulesCount.count === 0) {
-      const mockRules = [
-        { id: 'r1', battle_type: 'Bắn rơi UAV Mavic 3 Pro', reward_coin: 50000 },
-        { id: 'r2', battle_type: 'Tiêu diệt xe tăng Leopard', reward_coin: 1500000 },
-        { id: 'r3', battle_type: 'Phát hiện trận địa pháo binh', reward_coin: 200000 },
-        { id: 'r4', battle_type: 'Bắn hạ trực thăng K-52', reward_coin: 3000000 }
-      ];
-      mockRules.forEach(rule => {
-        db.runSync(
-          'INSERT INTO RewardRules (id, battle_type, reward_coin) VALUES (?, ?, ?)',
-          [rule.id, rule.battle_type, rule.reward_coin]
-        );
-      });
-    }
-
-    // Seed Products
-    const productCount = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM Products');
-    if (productCount && productCount.count === 0) {
-      MOCK_PRODUCTS.forEach(p => {
-        db.runSync(
-          'INSERT INTO Products (id, seller_id, category_id, brand_id, title, description, price, images, image_urls, stock, sold_count, rating, like_count, is_liked) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [p.id, p.seller_id, p.category_id, p.brand_id || 'b1', p.title, p.description, p.price, JSON.stringify(p.images), JSON.stringify(p.images), p.stock, p.sold_count, p.rating, p.like_count || 0, p.is_liked ? 1 : 0]
-        );
-      });
-    }
-
-    // Seed ProductVariants
-    const variantCount = db.getFirstSync<{ count: number }>('SELECT COUNT(*) as count FROM ProductVariants');
-    if (variantCount && variantCount.count === 0) {
-      const mockVariants = [
-        { id: 'pv1', product_id: 'p1', size: 'Standard Size', color: 'Xanh rêu dã chiến', stock: 30 },
-        { id: 'pv2', product_id: 'p1', size: 'Large Capacity', color: 'Cát sa mạc', stock: 20 },
-        { id: 'pv3', product_id: 'p2', size: 'Size 41', color: 'Da đen dã ngoại', stock: 10 },
-        { id: 'pv4', product_id: 'p2', size: 'Size 42', color: 'Da đen dã ngoại', stock: 10 },
-        { id: 'pv5', product_id: 'p3', size: 'Free Size', color: 'Lá cây', stock: 100 }
-      ];
-      mockVariants.forEach(v => {
-        db.runSync(
-          'INSERT INTO ProductVariants (id, product_id, size, color, stock) VALUES (?, ?, ?, ?, ?)',
-          [v.id, v.product_id, v.size, v.color, v.stock]
-        );
-      });
-    }
-
-    console.log('[SQLite] Khởi tạo & nạp dữ liệu dã chiến thành công.');
+    console.log('[SQLite] Khởi tạo CSDL dã chiến thành công (không kèm dữ liệu giả).');
   } catch (error) {
     console.error('Lỗi khởi tạo SQLite:', error);
   }
 };
+
+// Khởi tạo DB ngay khi module được import để đảm bảo an toàn cho cả Background Tasks
+initDB();

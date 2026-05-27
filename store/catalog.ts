@@ -18,6 +18,7 @@ interface CatalogState {
   appendProducts: (products: ProductListItem[]) => void;
   markSynced: () => void;
   setFetching: (value: boolean) => void;
+  toggleLike: (productId: string, userId: string) => void;
   /** Returns true when cache is stale or empty */
   isStale: () => boolean;
 }
@@ -42,6 +43,26 @@ export const useCatalogStore = create<CatalogState>()(
         }),
       markSynced: () => set({ lastSyncedAt: Date.now() }),
       setFetching: (value) => set({ isFetching: value }),
+      toggleLike: (productId, userId) => set((state) => {
+        const newProducts = state.products.map(p => {
+          if (p.id === productId) {
+            const newIsLiked = !p.is_liked;
+            const newLikeCount = newIsLiked ? (p.like_count + 1) : Math.max(0, p.like_count - 1);
+            
+            // Cập nhật ngầm SQLite
+            try {
+              const { ProductRepository } = require('../lib/repositories/ProductRepository');
+              ProductRepository.likeProduct(productId, userId, newIsLiked, newLikeCount);
+            } catch (err) {
+              console.warn('[CatalogStore] Lỗi cập nhật lượt thích vào SQLite', err);
+            }
+
+            return { ...p, is_liked: newIsLiked, like_count: newLikeCount };
+          }
+          return p;
+        });
+        return { products: newProducts };
+      }),
 
       isStale: () => {
         const { lastSyncedAt } = get();

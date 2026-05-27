@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Image } from 'react-native';
-import { SafeArea } from '../../components/layout/SafeArea';
-import { UI_CONFIG } from '../../constants/config';
-import { useAuthStore } from '../../store/auth';
-import { Button } from '../../components/ui/Button';
+import { SafeArea } from '../../../components/layout/SafeArea';
+import { UI_CONFIG } from '../../../constants/config';
+import { useAuthStore } from '../../../store/auth';
+import { Button } from '../../../components/ui/Button';
 import { useRouter } from 'expo-router';
-import { useRepositories } from '../../context/RepositoryProvider';
+import { useRepositories } from '../../../context/RepositoryProvider';
 
 export default function OfficerDashboard() {
   const user = useAuthStore(state => state.user);

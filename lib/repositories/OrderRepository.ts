@@ -2,7 +2,9 @@ import NetInfo from '@react-native-community/netinfo';
 import { db } from '../storage/sqlite';
 import { ordersApi } from '../api/endpoints/orders';
 import { useAuthStore } from '../../store/auth';
+import { useNetworkStore } from '../../store/network';
 import type { Order, OrderItem } from '../../types';
+import { encryptCoordinates } from '../utils/crypto';
 
 export const OrderRepository = {
   /**
@@ -39,22 +41,49 @@ export const OrderRepository = {
         };
       }
 
-      // 2. Chạy Transaction ghi cơ sở dữ liệu đồng thời bảo đảm tính toàn vẹn dữ liệu ví
+      // 2. Thử gọi API tạo đơn hàng trước (Online-first)
+      let apiSuccess = false;
+      try {
+        const apiPayload = {
+          items: params.items.map(item => ({
+            product_id: parseInt(item.product_id, 10),
+            quantity: item.quantity
+          })),
+          source: "mobile",
+          address_id: parseInt(params.addressId, 10) || 1
+        };
+        console.log(`[OrderRepo] Đang gọi API tạo đơn hàng...`);
+        await ordersApi.createOrder(apiPayload);
+        apiSuccess = true;
+      } catch (err: any) {
+        // Kiểm tra xem lỗi có phải lỗi nghiệp vụ không (Status 4xx)
+        const status = err.response?.status;
+        if (status && status >= 400 && status < 500) {
+           return { success: false, message: err.response?.data?.message || 'Lỗi hệ thống từ Server.' };
+        }
+        console.log('[OrderRepo] Lỗi mạng hoặc backend Offline. Chuyển sang fallback cục bộ.', err);
+      }
+
+      // 3. Chạy Transaction ghi cơ sở dữ liệu đồng thời bảo đảm tính toàn vẹn dữ liệu ví
       db.withTransactionSync(() => {
         // A. Tạo Hóa đơn cục bộ
+        const buyerGpsEnc = encryptCoordinates(20.8449, 106.6881); // Outpost Delta
+        const orderStatus = apiSuccess ? 'synced' : 'pending_sync';
         db.runSync(
           `INSERT INTO Orders (
             id, buyer_id, total_price, status, sync_status, created_at, 
-            buyer_coordinates_description
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            buyer_coordinates_x, buyer_coordinates_y, buyer_coordinates_description
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             orderId,
             user.id,
             totalAmount,
-            'pending_sync', // Trạng thái đồng bộ cục bộ
-            'pending_sync',
+            orderStatus,
+            orderStatus,
             new Date().toISOString(),
-            `Địa chỉ nhận: ${params.addressId}`
+            20.8449,
+            106.6881,
+            `Địa chỉ nhận: ${params.addressId} [GPS_ENC:${buyerGpsEnc}]`
           ]
         );
 
@@ -78,27 +107,29 @@ export const OrderRepository = {
           [totalAmount, user.id]
         );
 
-        // D. Tạo hàng chờ đồng bộ SyncQueue để đẩy lên server khi online
-        const queueId = 'q_' + Math.random().toString(36).substr(2, 9);
-        const syncPayload = JSON.stringify({
-          items: params.items.map(item => ({ product_id: item.product_id, quantity: item.quantity })),
-          address_id: params.addressId,
-          note: params.note || ''
-        });
+        // D. Tạo hàng chờ đồng bộ SyncQueue nếu API thất bại (cơ chế dã chiến)
+        if (!apiSuccess) {
+          const queueId = 'q_' + Math.random().toString(36).substr(2, 9);
+          const syncPayload = JSON.stringify({
+            items: params.items.map(item => ({ product_id: item.product_id, quantity: item.quantity })),
+            address_id: params.addressId,
+            note: params.note || ''
+          });
 
-        db.runSync(
-          `INSERT INTO SyncQueue (id, action, target_id, payload, priority, retry_count, created_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            queueId,
-            'ORDER_UPLOAD',
-            orderId,
-            syncPayload,
-            1, // Độ ưu tiên cao cho đơn hàng quân nhu
-            0,
-            new Date().toISOString()
-          ]
-        );
+          db.runSync(
+            `INSERT INTO SyncQueue (id, action, target_id, payload, priority, retry_count, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              queueId,
+              'ORDER_UPLOAD',
+              orderId,
+              syncPayload,
+              1, // Độ ưu tiên cao cho đơn hàng quân nhu
+              0,
+              new Date().toISOString()
+            ]
+          );
+        }
       });
 
       // Cập nhật số dư trong store Auth của Client để giao diện cập nhật ngay lập tức
@@ -106,14 +137,17 @@ export const OrderRepository = {
         virtual_balance: user.virtual_balance - totalAmount
       });
 
-      console.log(`[OrderRepo] Đơn hàng offline ${orderId} đã được tạo cục bộ thành công & xếp hàng chờ sync.`);
+      console.log(`[OrderRepo] Đơn hàng ${orderId} đã tạo thành công (API: ${apiSuccess ? 'Thành công' : 'Offline Fallback'}).`);
 
-      // Kích hoạt đồng bộ ngầm ngay nếu có kết nối mạng lập tức
-      const netState = await NetInfo.fetch();
-      if (netState.isConnected) {
-        // Gọi runSyncProcess của SyncService ngầm
-        const { SyncService } = require('../../services/SyncService');
-        SyncService.runSyncProcess().catch((err: any) => console.warn('[OrderRepo] Sync ngầm lỗi:', err));
+      // Kích hoạt đồng bộ ngầm ngay nếu có kết nối mạng và backend sống
+      if (!apiSuccess) {
+        const netState = await NetInfo.fetch();
+        const isBackendAlive = useNetworkStore.getState().isBackendAlive;
+        if (netState.isConnected && isBackendAlive) {
+          // Gọi runSyncProcess của SyncService ngầm
+          const { SyncService } = require('../../services/SyncService');
+          SyncService.runSyncProcess().catch((err: any) => console.warn('[OrderRepo] Sync ngầm lỗi:', err));
+        }
       }
 
       return { success: true, orderId };
@@ -123,26 +157,21 @@ export const OrderRepository = {
     }
   },
 
-  /**
-   * Lấy danh sách hóa đơn lịch sử (Offline-First).
-   * Lấy từ SQLite cục bộ lên trước để hiển thị nhanh, sau đó fetch API đồng bộ nếu online.
-   */
   async getOrders(): Promise<Order[]> {
     try {
-      const localOrders = this.getLocalOrders();
-      const state = await NetInfo.fetch();
-
-      if (state.isConnected) {
-        ordersApi.getPurchases({ page: 1, limit: 20 }).then(res => {
-          if (res.success && res.data) {
-            this.syncOrdersWithServer(res.data.items);
-          }
-        }).catch(err => {
-          console.warn('[OrderRepo] Lỗi fetch hóa đơn từ server:', err);
-        });
+      // 1. Thử gọi API trước để lấy dữ liệu mới nhất (Online-first)
+      try {
+        const res = await ordersApi.getPurchases({ index: '0', count: '20' });
+        if (res && res.success && res.data) {
+          this.syncOrdersWithServer(res.data.items);
+          console.log('[OrderRepo] Lấy hóa đơn từ server thành công.');
+        }
+      } catch (err) {
+        console.log('[OrderRepo] Không thể lấy hóa đơn từ server (Offline/Error), fallback về SQLite.');
       }
 
-      return localOrders;
+      // 2. Trả về dữ liệu từ SQLite local sau khi đã cập nhật (hoặc nếu API lỗi thì trả về cache cũ)
+      return this.getLocalOrders();
     } catch (e) {
       console.error('[OrderRepo] Lỗi trong getOrders:', e);
       return this.getLocalOrders();
@@ -264,7 +293,7 @@ export const OrderRepository = {
    * Thực hiện thanh toán đơn hàng đầy đủ (Transaction dã chiến).
    * Khấu trừ số dư ví, cập nhật kho sản phẩm, ghi Orders, OrderItems, Transactions và SyncQueue.
    */
-  checkoutOrder(params: {
+  async checkoutOrder(params: {
     userId: string;
     items: {
       product_id: string;
@@ -279,9 +308,26 @@ export const OrderRepository = {
     total: number;
     shipFee: number;
     sellerId: string;
-  }): string {
+  }): Promise<string> {
     const orderId = `ORD_${Date.now()}`;
     const now = new Date().toISOString();
+
+    let apiSuccess = false;
+    try {
+      console.log(`[OrderRepo] Đang gọi API tạo đơn hàng (checkout)...`);
+      const apiPayload = {
+        items: params.items.map(item => ({
+          product_id: parseInt(item.product_id, 10),
+          quantity: item.quantity
+        })),
+        source: "mobile",
+        address_id: 1 // hardcode default address for now
+      };
+      await ordersApi.createOrder(apiPayload);
+      apiSuccess = true;
+    } catch (err) {
+      console.log('[OrderRepo] Lỗi mạng hoặc backend Offline. Chuyển sang fallback cục bộ.', err);
+    }
 
     db.withTransactionSync(() => {
       // 1. Khấu trừ số dư tài khoản của chiến sĩ
@@ -298,6 +344,8 @@ export const OrderRepository = {
 
       // 2. Ghi hóa đơn chính (Orders)
       const firstItem = params.items[0];
+      const buyerGpsEnc = encryptCoordinates(20.8449, 106.6881);
+      const sellerGpsEnc = encryptCoordinates(21.0285, 105.8542);
       db.runSync(
         `INSERT INTO Orders (
           id, buyer_id, buyer_coordinates_x, buyer_coordinates_y, buyer_coordinates_description,
@@ -309,15 +357,15 @@ export const OrderRepository = {
           params.userId,
           20.8449, // Outpost Delta Latitude
           106.6881, // Outpost Delta Longitude
-          'Tiền đồn Hải Phòng - Outpost Delta-7',
+          `Tiền đồn Hải Phòng - Outpost Delta-7 [GPS_ENC:${buyerGpsEnc}]`,
           params.sellerId,
           21.0285, // Depot Bravo Latitude
           105.8542, // Depot Bravo Longitude
-          'Tổng kho quân khu Thủ đô - Base Bravo-1',
-          'pending_sync',
+          `Tổng kho quân khu Thủ đô - Base Bravo-1 [GPS_ENC:${sellerGpsEnc}]`,
+          apiSuccess ? 'synced' : 'pending_sync',
           params.total,
           params.shipFee,
-          'pending_sync',
+          apiSuccess ? 'synced' : 'pending_sync',
           now,
           firstItem.product_id,
           firstItem.quantity
@@ -353,30 +401,34 @@ export const OrderRepository = {
         [txId, params.userId, 'SPEND', params.total, 'completed', `Thanh toán đơn hàng quân nhu ${orderId}`, orderId, now]
       );
 
-      // 5. Đẩy hàng chờ SyncQueue
-      const syncPayload = {
-        id: orderId,
-        buyer_id: params.userId,
-        buyer_coordinates: { x: 20.8449, y: 106.6881, description: 'Tiền đồn Hải Phòng - Outpost Delta-7' },
-        seller_id: params.sellerId,
-        seller_coordinates: { x: 21.0285, y: 105.8542, description: 'Tổng kho quân khu Thủ đô - Base Bravo-1' },
-        total_price: params.total,
-        shipping_fee: params.shipFee,
-        created_at: now,
-        items: params.items.map(item => ({
-          product_id: item.product_id,
-          variant_id: item.variant_id || null,
-          variant_title: item.variant_title || null,
-          price: item.price,
-          quantity: item.quantity,
-          title: item.title
-        }))
-      };
+      // 5. Đẩy hàng chờ SyncQueue nếu API thất bại
+      if (!apiSuccess) {
+        const buyerGpsEncPayload = encryptCoordinates(20.8449, 106.6881);
+        const sellerGpsEncPayload = encryptCoordinates(21.0285, 105.8542);
+        const syncPayload = {
+          id: orderId,
+          buyer_id: params.userId,
+          buyer_coordinates: { x: 20.8449, y: 106.6881, description: `Tiền đồn Hải Phòng - Outpost Delta-7 [GPS_ENC:${buyerGpsEncPayload}]` },
+          seller_id: params.sellerId,
+          seller_coordinates: { x: 21.0285, y: 105.8542, description: `Tổng kho quân khu Thủ đô - Base Bravo-1 [GPS_ENC:${sellerGpsEncPayload}]` },
+          total_price: params.total,
+          shipping_fee: params.shipFee,
+          created_at: now,
+          items: params.items.map(item => ({
+            product_id: item.product_id,
+            variant_id: item.variant_id || null,
+            variant_title: item.variant_title || null,
+            price: item.price,
+            quantity: item.quantity,
+            title: item.title
+          }))
+        };
 
-      db.runSync(
-        'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?);',
-        [`SQ_${orderId}`, 'ORDER_UPLOAD', orderId, JSON.stringify(syncPayload), now]
-      );
+        db.runSync(
+          'INSERT INTO SyncQueue (id, action, target_id, payload, created_at) VALUES (?, ?, ?, ?, ?);',
+          [`SQ_${orderId}`, 'ORDER_UPLOAD', orderId, JSON.stringify(syncPayload), now]
+        );
+      }
     });
 
     return orderId;

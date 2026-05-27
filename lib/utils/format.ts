@@ -10,6 +10,13 @@ export const formatCurrency = (amount: number): string => {
   if (amount === undefined || amount === null || isNaN(amount)) {
     return '0 ₫';
   }
+  
+  // Format viết tắt T (Tỷ) cho các số dư cực lớn (>= 1000 Tỷ)
+  if (amount >= 1_000_000_000_000) {
+    const ty = Math.floor(amount / 1_000_000_000);
+    return ty.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "T ₫";
+  }
+
   // Tối ưu hiệu năng thay vì sử dụng toLocaleString trên một số thiết bị Android cấu hình yếu
   return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " ₫";
 };

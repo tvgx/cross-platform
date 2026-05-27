@@ -1,39 +1,82 @@
-import { Href, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { UI_CONFIG } from '../../constants/config';
+import { authApi } from '../../lib/api/endpoints/auth';
+import { useRepositories } from '../../context/RepositoryProvider';
+import { useAuthStore } from '../../store/auth';
+import { NavigationService } from '../../lib/navigation/NavigationService';
+import { ROUTES } from '../../lib/navigation/routes';
 
 export function SignupView() {
-  const router = useRouter();
+  const { userRepository } = useRepositories();
+  const setAuth = useAuthStore((state) => state.setAuth);
 
-  const [username, setUsername] = useState('');
+  const [phonenumber, setPhonenumber] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [fullname, setFullname] = useState('');
-  const [phonenumber, setPhonenumber] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = () => {
-    if (!username || !password || !confirmPassword || !fullname || !phonenumber) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ thông tin.');
+  const handleSignup = async () => {
+    if (!phonenumber || !password || !confirmPassword) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ số điện thoại và mật khẩu.');
       return;
     }
     if (password !== confirmPassword) {
       Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp.');
       return;
     }
+    if (password.length < 6) {
+      Alert.alert('Lỗi', 'Mật khẩu phải chứa ít nhất 6 ký tự.');
+      return;
+    }
 
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Tạo mã thiết bị UUID ngẫu nhiên dã chiến
+      const uuid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      
+      const signupBody = {
+        phone_number: phonenumber,
+        password,
+        uuid,
+      };
+      
+      console.log('[Signup] Đang gọi API đăng ký tối giản...', signupBody);
+      const res = await authApi.signup(signupBody);
+      
+      if (res && (res.success || (res as any).code === '1000' || res.data)) {
+        const { tokens, user } = res.data;
+        console.log('[Signup] Đăng ký thành công từ server. User ID:', user.id);
+
+        // Lưu thông tin người dùng cục bộ vào SQLite để tác chiến ngoại tuyến
+        userRepository.saveUser(user);
+        userRepository.createWallet(user.id, 999999999999999999);
+        
+        // Tự động kích hoạt trạng thái đăng nhập ngay lập tức
+        setAuth(user, tokens);
+        setLoading(false);
+
+        Alert.alert('Thành công', 'Đăng ký tài khoản thành công! Tự động đăng nhập vào ứng dụng.', [
+          { 
+            text: 'Bắt đầu', 
+            onPress: () => {
+              NavigationService.replace(ROUTES.DECLARE_INFO);
+            } 
+          }
+        ]);
+      } else {
+        setLoading(false);
+        const errMsg = res.message || 'Không thể đăng ký tài khoản. Vui lòng kiểm tra lại thông tin.';
+        Alert.alert('Đăng ký thất bại', errMsg);
+      }
+    } catch (err: any) {
+      console.log('[Signup] Mạng lỗi hoặc server từ chối:', err);
       setLoading(false);
-      Alert.alert('Thành công', 'Đăng ký tài khoản thành công.', [
-        { text: 'OK', onPress: () => router.replace('/(auth)/login' as Href) }
-      ]);
-    }, 1000);
+      Alert.alert('Lỗi kết nối', 'Không thể đăng ký tài khoản lúc này. Vui lòng kiểm tra kết nối mạng.');
+    }
   };
 
   return (
@@ -45,21 +88,10 @@ export function SignupView() {
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={styles.form}>
               <Input
-                placeholder="Họ và tên"
-                value={fullname}
-                onChangeText={setFullname}
-              />
-              <Input
                 placeholder="Số điện thoại"
                 value={phonenumber}
                 onChangeText={setPhonenumber}
                 keyboardType="phone-pad"
-              />
-              <Input
-                placeholder="Tên đăng nhập"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
               />
               <Input
                 variant="password"
@@ -81,7 +113,7 @@ export function SignupView() {
 
               <View style={styles.loginPrompt}>
                 <Text style={styles.loginText}>Đã có tài khoản? </Text>
-                <TouchableOpacity onPress={() => router.replace('/(auth)/login' as Href)}>
+                <TouchableOpacity onPress={() => NavigationService.replace(ROUTES.LOGIN)}>
                   <Text style={styles.loginLink}>Đăng nhập</Text>
                 </TouchableOpacity>
               </View>

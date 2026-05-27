@@ -56,9 +56,9 @@ export const PostRepository = {
   },
 
   /**
-   * Upload bài đăng chiến tích dã chiến offline-first.
+   * Upload bài đăng chiến tích (Online-first).
    */
-  createPost(post: {
+  async createPost(post: {
     id: string;
     title: string;
     description: string;
@@ -70,8 +70,18 @@ export const PostRepository = {
     ai_score: number;
     reward_coin: number;
     created_at: string;
-  }): void {
+  }): Promise<void> {
     try {
+      let apiSuccess = false;
+      try {
+        console.log('[PostRepo] Đang gọi API tạo bài đăng chiến tích...');
+        const { apiCall } = require('../api/client');
+        await apiCall('POST', '/api/upload_post', post);
+        apiSuccess = true;
+      } catch (err) {
+        console.log('[PostRepo] Lỗi mạng hoặc backend Offline. Chuyển sang fallback cục bộ.', err);
+      }
+
       db.runSync(
         `INSERT INTO Posts (
           id, title, description, media_url, video_url, image_url, 
@@ -86,38 +96,40 @@ export const PostRepository = {
           post.image_url || '',
           post.author_id,
           post.status,
-          'pending_sync',
+          apiSuccess ? 'synced' : 'pending_sync',
           post.ai_score,
           post.reward_coin,
           post.created_at
         ]
       );
 
-      // Thêm hàng chờ đồng bộ hóa SyncQueue ngầm lên server
-      const queueId = 'q_post_' + Math.random().toString(36).substr(2, 9);
-      const syncPayload = JSON.stringify({
-        title: post.title,
-        description: post.description,
-        media_url: post.media_url,
-        ai_score: post.ai_score,
-        reward_coin: post.reward_coin
-      });
+      if (!apiSuccess) {
+        // Thêm hàng chờ đồng bộ hóa SyncQueue ngầm lên server
+        const queueId = 'q_post_' + Math.random().toString(36).substr(2, 9);
+        const syncPayload = JSON.stringify({
+          title: post.title,
+          description: post.description,
+          media_url: post.media_url,
+          ai_score: post.ai_score,
+          reward_coin: post.reward_coin
+        });
 
-      db.runSync(
-        `INSERT INTO SyncQueue (id, action, target_id, payload, priority, retry_count, created_at) 
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          queueId,
-          'MEDIA_UPLOAD',
-          post.id,
-          syncPayload,
-          2, // Ưu tiên trung bình cao
-          0,
-          new Date().toISOString()
-        ]
-      );
+        db.runSync(
+          `INSERT INTO SyncQueue (id, action, target_id, payload, priority, retry_count, created_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            queueId,
+            'MEDIA_UPLOAD',
+            post.id,
+            syncPayload,
+            2, // Ưu tiên trung bình cao
+            0,
+            new Date().toISOString()
+          ]
+        );
+      }
 
-      console.log(`[PostRepo] Đã lưu bài đăng chiến tích ${post.id} cục bộ thành công & xếp hàng sync.`);
+      console.log(`[PostRepo] Đã lưu bài đăng chiến tích ${post.id} (API: ${apiSuccess ? 'Thành công' : 'Offline Fallback'}).`);
     } catch (e) {
       console.error('[PostRepo] Lỗi lưu bài đăng chiến tích:', e);
       throw e;

@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Header } from '../../../components/navigation/Header';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { SyncService } from '../../../services/SyncService';
+import { SwipeWrapper } from '../../../components/navigation/SwipeWrapper';
 
 export default function UploadScreen() {
   const { postRepository } = useRepositories();
@@ -35,7 +36,7 @@ export default function UploadScreen() {
 
   const handleUpload = async () => {
     if (!title || !mediaUri || !user) {
-      Alert.alert('THÔNG TIN THIẾU', 'Vui lòng nhập tiêu đề và chọn minh chứng chiến tích.');
+      Alert.alert('THIẾU THÔNG TIN', 'Nhập tiêu đề và chọn minh chứng.');
       return;
     }
 
@@ -47,27 +48,27 @@ export default function UploadScreen() {
       
       const postId = `POST_${Date.now()}`;
       const now = new Date().toISOString();
-      const mockAiScore = Math.floor(Math.random() * 50000) + 10000;
+      const aiScore = 0; // Sẽ được API định giá sau khi upload thành công
 
-      // 2. Lưu vào SQLite qua PostRepository
-      postRepository.createPost({
+      // 2. Lưu vào SQLite qua PostRepository (bây giờ là async gọi API)
+      await postRepository.createPost({
         id: postId,
         title,
         description,
         media_url: localUri,
         author_id: user.id,
         status: 'pending',
-        ai_score: mockAiScore,
-        reward_coin: mockAiScore,
+        ai_score: aiScore,
+        reward_coin: aiScore,
         created_at: now
       });
 
-      // 3. Kích hoạt sync ngay nếu có mạng
+      // 3. Kích hoạt sync ngay nếu có mạng (đối với các task fallback)
       SyncService.runSyncProcess();
 
       Alert.alert(
-        'LỆNH GỬI THÀNH CÔNG', 
-        `Chiến tích đã được lưu vào bộ nhớ tác chiến. Đang chờ AI định giá (Dự kiến: ${mockAiScore.toLocaleString('vi-VN')} Xu).`
+        'THÀNH CÔNG', 
+        `Đã gửi chiến tích. Chờ Hội đồng / AI xét duyệt để nhận Xu.`
       );
       
       setTitle('');
@@ -76,15 +77,16 @@ export default function UploadScreen() {
       
     } catch (err) {
       console.error(err);
-      Alert.alert('LỖI HỆ THỐNG', 'Không thể lưu trữ chiến tích cục bộ.');
+      Alert.alert('LỖI', 'Không lưu được chiến tích.');
     } finally {
       setIsProcessing(false);
     }
   };
 
   return (
-    <SafeArea edges={['top']}>
-      <Header title="CHỨNG MINH CHIẾN TÍCH" leftIcon="menu" rightIcon="cloud-upload" />
+    <SwipeWrapper currentTab="upload">
+      <SafeArea edges={['top']}>
+        <Header title="CHỨNG MINH CHIẾN TÍCH" leftIcon="menu" rightIcon="cloud-upload" />
       
       <View style={styles.container}>
         <Text style={styles.subtitle}>
@@ -117,7 +119,7 @@ export default function UploadScreen() {
               </View>
             ) : (
               <View style={styles.placeholderBox}>
-                <ActivityIndicator size="small" color={UI_CONFIG.colors.primary} style={{ marginBottom: 10 }} />
+                <Text style={{ fontSize: 40, color: UI_CONFIG.colors.primary, marginBottom: 10, fontWeight: '200' }}>+</Text>
                 <Text style={styles.placeholderText}>NHẤN ĐỂ CHỌN ẢNH / VIDEO CHIẾN TÍCH</Text>
               </View>
             )}
@@ -131,8 +133,9 @@ export default function UploadScreen() {
             size="lg"
           />
         </View>
-      </View>
-    </SafeArea>
+        </View>
+      </SafeArea>
+    </SwipeWrapper>
   );
 }
 
@@ -149,7 +152,7 @@ const styles = StyleSheet.create({
   },
   form: { gap: 20 },
   input: {
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     borderColor: 'rgba(255,255,255,0.1)',
     color: '#fff',
     fontWeight: '700',

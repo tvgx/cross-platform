@@ -4,7 +4,7 @@ const path = require('path');
 
 function getBaseUrl() {
   try {
-    const envPath = path.resolve(__dirname, '../local.env');
+    const envPath = path.resolve(__dirname, '../.env');
     if (fs.existsSync(envPath)) {
       const envContent = fs.readFileSync(envPath, 'utf8');
       const match = envContent.match(/^EXPO_PUBLIC_API_URL\s*=\s*(.+)$/m);
@@ -31,6 +31,16 @@ async function testCatalog() {
     console.log('[SUCCESS] POST /api/get_list_brands');
     console.log('Keys:', Object.keys(brandRes.data));
     console.log('Data sample:', JSON.stringify(brandRes.data.data).substring(0, 300));
+
+    const productsRes = await axios.post(`${BASE_URL}/api/get_list_products`, { index: 0, count: 20 });
+    console.log('[SUCCESS] POST /api/get_list_products');
+    console.log('Keys:', Object.keys(productsRes.data));
+    console.log('Data sample:', JSON.stringify(productsRes.data.data).substring(0, 300));
+
+    const productDetailRes = await axios.post(`${BASE_URL}/api/get_products`, { id: "126" });
+    console.log('[SUCCESS] POST /api/get_products');
+    console.log('Keys:', Object.keys(productDetailRes.data));
+    console.log('Data sample:', JSON.stringify(productDetailRes.data.data).substring(0, 300));
   } catch (err) {
     console.error('[ERROR]', err.message);
   }

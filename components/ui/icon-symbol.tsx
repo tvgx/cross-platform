@@ -35,6 +35,10 @@ const MAPPING = {
   'compass': 'explore',
   'heart': 'medical-services',
   'bolt': 'flash-on',
+  'line.3.horizontal': 'menu',
+  'bell': 'notifications',
+  'receipt': 'receipt',
+  'gear': 'settings',
 } as any;
 
 /**

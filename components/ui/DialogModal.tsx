@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     padding: UI_CONFIG.spacing.lg,
   },
   container: {
-    backgroundColor: UI_CONFIG.colors.white,
+    backgroundColor: UI_CONFIG.colors.surface,
     borderRadius: UI_CONFIG.borderRadius.lg,
     padding: UI_CONFIG.spacing.lg,
     width: '100%',

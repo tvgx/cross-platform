@@ -7,6 +7,9 @@ import { useAuthStore } from '../../store/auth';
 import { IconSymbol } from '../../components/ui/icon-symbol';
 import { useRouter, Href } from 'expo-router';
 import { useRepositories } from '../../context/RepositoryProvider';
+import { NavigationService } from '../../lib/navigation/NavigationService';
+import { ROUTES } from '../../lib/navigation/routes';
+import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
 
 export function ProfileView() {
   const user = useAuthStore(state => state.user);
@@ -65,8 +68,9 @@ export function ProfileView() {
   );
 
   return (
-    <SafeArea edges={['top']}>
-      <CustomAppBar title="Tài khoản" />
+    <SwipeWrapper currentTab="profile">
+      <SafeArea edges={['top']}>
+        <CustomAppBar title="Tài khoản" />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
         {/* Header section */}
@@ -95,8 +99,12 @@ export function ProfileView() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statNumber, { color: UI_CONFIG.colors.primary }]}>
-              {balance.toLocaleString('vi-VN')}
+            <Text 
+              style={[styles.statNumber, { color: UI_CONFIG.colors.primary }]} 
+              numberOfLines={1} 
+              ellipsizeMode="clip"
+            >
+              {balance >= 900000000000000000 ? '999999999999999999' : balance.toLocaleString('vi-VN')}
             </Text>
             <Text style={styles.statLabel}>Điểm thưởng</Text>
           </View>
@@ -130,12 +138,16 @@ export function ProfileView() {
         {/* Menu list */}
         <View style={styles.menuContainer}>
           <Text style={styles.menuSectionTitle}>Mua sắm</Text>
-          {renderMenuItem('cart', 'Đơn hàng của tôi', () => {})}
-          {renderMenuItem('star', 'Sản phẩm đã thích', () => {})}
+          {renderMenuItem('grid', 'Tất cả sản phẩm', () => NavigationService.navigate(ROUTES.ALL_PRODUCTS))}
+          {renderMenuItem('cart', 'Giỏ hàng của tôi', () => NavigationService.navigate(ROUTES.CART))}
+          {renderMenuItem('receipt', 'Đơn hàng của tôi', () => NavigationService.navigate('/(main)/orders' as any))}
+          {renderMenuItem('heart', 'Sản phẩm đã thích', () => NavigationService.navigate('/(main)/liked' as any))}
           
           <Text style={styles.menuSectionTitle}>Tài khoản</Text>
-          {renderMenuItem('person', 'Thông tin cá nhân', () => {})}
-          {renderMenuItem('shield', 'Đổi mật khẩu', () => {})}
+          {renderMenuItem('person', 'Thông tin cá nhân', () => NavigationService.navigate('/(main)/personal-info' as any))}
+          {renderMenuItem('shield', 'Đổi mật khẩu', () => NavigationService.navigate('/(main)/change-password' as any))}
+          {renderMenuItem('bell', 'Thông báo', () => NavigationService.navigate(ROUTES.NOTIFICATIONS))}
+          {renderMenuItem('gear', 'Cài đặt', () => NavigationService.navigate('/(main)/settings' as any))}
         </View>
 
         {/* Logout Button */}
@@ -143,8 +155,9 @@ export function ProfileView() {
           <Text style={styles.logoutText}>Đăng xuất</Text>
         </TouchableOpacity>
 
-      </ScrollView>
-    </SafeArea>
+        </ScrollView>
+      </SafeArea>
+    </SwipeWrapper>
   );
 }
 

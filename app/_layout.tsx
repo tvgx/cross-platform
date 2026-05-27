@@ -7,13 +7,17 @@ import { useSyncQueueStore } from '../store/syncQueue';
 import { registerBackgroundSyncAsync } from '../lib/tasks/backgroundSync';
 import { initDB } from '../lib/storage/sqlite';
 import { RepositoryProvider } from '../context/RepositoryProvider';
+import { SyncService } from '../services/SyncService';
 
 export default function RootLayout() {
   const setOnline = useNetworkStore((state) => state.setOnline);
 
   useEffect(() => {
-    // Initialize SQLite Database
-    initDB();
+    // DB is auto-initialized on module load in sqlite.ts
+    
+    // Initialize SyncService listeners
+    SyncService.init();
+    
     // Register background fetch task
     registerBackgroundSyncAsync();
 
@@ -42,7 +46,6 @@ export default function RootLayout() {
       // Foreground Sync: Process queue immediately when online
       if (isConnected) {
         useSyncQueueStore.getState().processQueue();
-        const { SyncService } = require('../services/SyncService');
         SyncService.runSyncProcess().catch((err: any) => console.warn('[RootLayout] SyncService error:', err));
       }
     });

@@ -26,6 +26,7 @@ export interface Category {
   id: string;
   name: string;
   icon?: string;
+  image_url?: string;
   parent_id?: string;
 }
 
@@ -61,6 +62,7 @@ export interface Product {
 export interface ProductListItem {
   id: string;
   title: string;
+  description?: string;
   price: number;
   images: string[];
   seller_id: string;
@@ -71,6 +73,7 @@ export interface ProductListItem {
   stock: number;
   sold_count: number;
   category_id: string;
+  created_at?: string;
 }
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────

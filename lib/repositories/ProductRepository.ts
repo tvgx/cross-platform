@@ -2,6 +2,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { db } from '../storage/sqlite';
 import { productsApi, ProductFilters } from '../api/endpoints/products';
 import { useCatalogStore } from '../../store/catalog';
+import { useNetworkStore } from '../../store/network';
 import type { Product, ProductListItem, Category, Brand } from '../../types';
 
 export const ProductRepository = {
@@ -15,23 +16,23 @@ export const ProductRepository = {
    */
   async getProducts(filters?: ProductFilters, forceRefresh = false): Promise<ProductListItem[]> {
     try {
-      // 1. Luôn đọc dữ liệu cục bộ trước tiên để UI tải siêu nhanh
-      const localProducts = this.getLocalProducts(filters);
-
-      // 2. Kiểm tra kết nối mạng và tính hợp lệ của cache
-      const state = await NetInfo.fetch();
       const catalogStore = useCatalogStore.getState();
       const isStale = catalogStore.isStale();
 
-      if (state.isConnected && (isStale || forceRefresh)) {
-        console.log('[ProductRepo] Kích hoạt tải dữ liệu ngầm từ Server...');
-        // Chạy bất đồng bộ ngầm để không chặn UI của lính dã chiến
-        this.fetchAndSyncProducts(filters).catch(err => {
-          console.warn('[ProductRepo] Lỗi đồng bộ danh sách sản phẩm:', err);
-        });
+      // 1. Thử gọi API trước (Online-first)
+      if (isStale || forceRefresh) {
+        try {
+          console.log('[ProductRepo] Kích hoạt tải dữ liệu từ Server...');
+          // Chạy đồng bộ để chờ dữ liệu mới nhất (Online-first)
+          await this.fetchAndSyncProducts(filters);
+        } catch (err) {
+          console.warn('[ProductRepo] Lỗi tải danh sách sản phẩm từ Server (Offline/Error), fallback về SQLite:', err);
+        }
       }
 
-      return localProducts.length > 0 ? localProducts : this.getFallbackMockProducts(filters);
+      // 2. Lấy dữ liệu cục bộ (sau khi đã cập nhật nếu có)
+      const localProducts = this.getLocalProducts(filters);
+      return localProducts;
     } catch (error) {
       console.error('[ProductRepo] Lỗi trong getProducts:', error);
       return this.getLocalProducts(filters);
@@ -113,38 +114,41 @@ export const ProductRepository = {
    */
   async getProductDetail(productId: string, forceRefresh = false): Promise<Product | null> {
     try {
-      // 1. Đọc chi tiết sản phẩm cục bộ
       const localProduct = this.getLocalProductDetail(productId);
 
-      const state = await NetInfo.fetch();
-      if (state.isConnected && (!localProduct || forceRefresh)) {
-        const response = await productsApi.getProduct(productId);
-        if (response.success && response.data) {
-          const p = response.data;
-          // Lưu vào SQLite dã chiến cục bộ
-          db.runSync(
-            `INSERT OR REPLACE INTO Products 
-            (id, seller_id, category_id, brand_id, title, description, price, images, image_urls, stock, sold_count, rating, like_count, is_liked, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              p.id,
-              p.seller_id,
-              p.category_id,
-              p.brand_id || 'b1',
-              p.title,
-              p.description,
-              p.price,
-              JSON.stringify(p.images),
-              JSON.stringify(p.images),
-              p.stock,
-              p.sold_count,
-              p.rating,
-              p.like_count,
-              p.is_liked ? 1 : 0,
-              p.created_at || new Date().toISOString()
-            ]
-          );
-          return p;
+      // 1. Thử gọi API trước
+      if (!localProduct || forceRefresh) {
+        try {
+          const response = await productsApi.getProduct(productId);
+          if (response && response.success && response.data) {
+            const p: any = response.data;
+            // Lưu vào SQLite dã chiến cục bộ
+            db.runSync(
+              `INSERT OR REPLACE INTO Products 
+              (id, seller_id, category_id, brand_id, title, description, price, images, image_urls, stock, sold_count, rating, like_count, is_liked, created_at) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              [
+                String(p.id),
+                p.seller_id ? String(p.seller_id) : '1',
+                p.category_id ? String(p.category_id) : '1',
+                p.brand_id ? String(p.brand_id) : 'b1',
+                p.title || p.name || 'Không có tên',
+                p.description || '',
+                Number(p.price) || 0,
+                JSON.stringify(p.images ? p.images : (p.image ? [p.image] : [])),
+                JSON.stringify(p.images ? p.images : (p.image ? [p.image] : [])),
+                p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
+                p.sold_count || 0,
+                p.rating || 5.0,
+                p.like_count || Number(p.like) || 0,
+                p.is_liked === true || p.is_liked === '1' ? 1 : 0,
+                p.created_at || new Date().toISOString()
+              ]
+            );
+            return p;
+          }
+        } catch (err) {
+          console.warn('[ProductRepo] Lỗi lấy chi tiết sản phẩm từ Server, fallback về SQLite:', err);
         }
       }
 
@@ -193,14 +197,13 @@ export const ProductRepository = {
    */
   async syncCategoriesAndBrands(force = false): Promise<{ categories: Category[]; brands: Brand[] }> {
     const store = useCatalogStore.getState();
-    const state = await NetInfo.fetch();
 
-    if (state.isConnected && (store.isStale() || force || store.categories.length === 0)) {
+    if (store.isStale() || force || store.categories.length === 0) {
       try {
         console.log('[ProductRepo] Đồng bộ danh mục từ máy chủ...');
         const [catRes, brandRes] = await Promise.all([
-          productsApi.getCategories().catch(() => null),
-          productsApi.getListBrand().catch(() => null)
+          productsApi.getCategories(),
+          productsApi.getListBrand()
         ]);
 
         if (catRes && catRes.success && catRes.data) {
@@ -211,7 +214,7 @@ export const ProductRepository = {
         }
         store.markSynced();
       } catch (err) {
-        console.error('[ProductRepo] Lỗi tải danh mục/thương hiệu:', err);
+        console.warn('[ProductRepo] Lỗi tải danh mục/thương hiệu (Offline/Error):', err);
       }
     }
 
@@ -242,14 +245,14 @@ export const ProductRepository = {
               String(p.id),
               p.seller_id ? String(p.seller_id) : '1',
               p.category_id ? String(p.category_id) : '1',
-              p.title,
-              p.price || 0,
-              JSON.stringify(p.images || []),
-              p.stock || 0,
+              p.title || p.name || 'Không có tên',
+              Number(p.price) || 0,
+              JSON.stringify(p.images ? p.images : (p.image ? [p.image] : [])),
+              p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
               p.sold_count || 0,
               p.rating || 5.0,
-              p.like_count || 0,
-              p.is_liked ? 1 : 0,
+              p.like_count || Number(p.like) || 0,
+              p.is_liked === true || p.is_liked === '1' ? 1 : 0,
               p.created_at || new Date().toISOString()
             ]
           );
@@ -263,31 +266,6 @@ export const ProductRepository = {
     }
   },
 
-  /**
-   * Lọc và nạp dữ liệu Mock dự phòng khi DB hoàn toàn rỗng để lính dã chiến có trải nghiệm ban đầu tốt nhất.
-   */
-  getFallbackMockProducts(filters?: ProductFilters): ProductListItem[] {
-    const { MOCK_PRODUCTS } = require('../mockDB');
-    let items: any[] = MOCK_PRODUCTS;
-
-    if (filters?.category_id) {
-      items = items.filter(p => p.category_id === filters.category_id);
-    }
-    return items.map(p => ({
-      id: p.id,
-      title: p.title,
-      price: p.price,
-      images: p.images,
-      seller_id: p.seller_id,
-      seller_name: p.seller_name,
-      rating: p.rating,
-      like_count: p.like_count,
-      is_liked: p.is_liked,
-      stock: p.stock,
-      sold_count: p.sold_count,
-      category_id: p.category_id,
-    }));
-  },
 
   /**
    * Helper an toàn chống crash ứng dụng khi phân tích chuỗi JSON lưu trong SQLite.

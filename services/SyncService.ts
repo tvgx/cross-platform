@@ -5,8 +5,12 @@ import { PostRepository } from '../lib/repositories/PostRepository';
 import { OrderRepository } from '../lib/repositories/OrderRepository';
 import { MessageRepository } from '../lib/repositories/MessageRepository';
 import { apiCall } from '../lib/api/client';
+import { useNetworkStore } from '../store/network';
 
 const MOCK_API_URL = 'https://api.army-plus.vn/v1';
+
+let activeOnlineInterval: any = null;
+let isInitialized = false;
 
 export const SyncService = {
   /**
@@ -14,9 +18,14 @@ export const SyncService = {
    */
   async runSyncProcess() {
     const state = await NetInfo.fetch();
+    const isBackendAlive = useNetworkStore.getState().isBackendAlive;
+
     if (!state.isConnected) {
-      console.log('[Sync] Thiết bị Offline - Tạm hoãn đồng bộ');
-      return;
+      console.log('[Sync] Thiết bị Offline - Tạm hoãn đồng bộ lên server. (Cập nhật Local)');
+    }
+    
+    if (!isBackendAlive) {
+      console.log('[Sync] Máy chủ không phản hồi (Offline Mode) - Tự động hoàn tất tác vụ cục bộ.');
     }
 
     try {
@@ -71,6 +80,14 @@ export const SyncService = {
     }
 
     try {
+      const isBackendAlive = useNetworkStore.getState().isBackendAlive;
+      
+      if (!isBackendAlive) {
+        // Mô phỏng thành công ngay lập tức ở chế độ Local
+        OrderRepository.markOrderSynced(orderId);
+        return true;
+      }
+
       // 1. Ánh xạ chuẩn CreateOrderDto
       const apiPayload = {
         items: payload.items.map((item: any) => ({
@@ -123,6 +140,12 @@ export const SyncService = {
     console.log(`[Sync] Đang tải lên Media cho bài đăng: ${post.title}`);
 
     try {
+      const isBackendAlive = useNetworkStore.getState().isBackendAlive;
+      if (!isBackendAlive) {
+        PostRepository.markPostSynced(postId);
+        return true;
+      }
+
       // Giả lập upload Multipart Form Data
       await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -144,7 +167,11 @@ export const SyncService = {
    */
   async submitAppeal(appealId: string, payload: any) {
     console.log(`[Sync] Đang đồng bộ khiếu nại chiến tích ${appealId} lên máy chủ...`);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    const isBackendAlive = useNetworkStore.getState().isBackendAlive;
+    if (isBackendAlive) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
     
     // Cập nhật trạng thái Appeals thông qua PostRepository
     PostRepository.markAppealSynced(appealId);
@@ -159,6 +186,12 @@ export const SyncService = {
     if (!payload) return true;
 
     try {
+      const isBackendAlive = useNetworkStore.getState().isBackendAlive;
+      if (!isBackendAlive) {
+        MessageRepository.markMessageSynced(messageId);
+        return true;
+      }
+
       // Ánh xạ chuẩn SendMessageDto
       const apiPayload = {
         to_id: isNaN(parseInt(payload.to_id)) ? 1 : parseInt(payload.to_id),
@@ -178,14 +211,35 @@ export const SyncService = {
       // Giữ lại task trong SyncQueue nếu là lỗi mạng để gửi lại sau
       return false;
     }
+  },
+
+  init() {
+    if (isInitialized) return;
+    isInitialized = true;
+
+    NetInfo.addEventListener(state => {
+      if (state.isConnected) {
+        console.log('[Sync] Kênh truyền trực tuyến tốc độ cao hoạt động.');
+        
+        // Kích hoạt đồng bộ tức thì
+        this.runSyncProcess();
+        
+        // Khởi tạo interval đồng bộ liên tục khi online (mỗi 15 giây)
+        if (!activeOnlineInterval) {
+          activeOnlineInterval = setInterval(() => {
+            this.runSyncProcess();
+          }, 15000);
+        }
+      } else {
+        console.log('[Sync] Mất kết nối. Chuyển sang chế độ tác chiến ngoại tuyến ngầm.');
+        
+        // Xóa interval khi offline để bảo toàn pin
+        if (activeOnlineInterval) {
+          clearInterval(activeOnlineInterval);
+          activeOnlineInterval = null;
+        }
+      }
+    });
   }
 };
 
-/**
- * Lắng nghe thay đổi mạng để kích hoạt đồng bộ
- */
-NetInfo.addEventListener(state => {
-  if (state.isConnected) {
-    SyncService.runSyncProcess();
-  }
-});

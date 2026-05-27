@@ -12,46 +12,46 @@ import {
 } from 'react-native';
 import { UI_CONFIG } from '../../constants/config';
 
-// Bản đồ ánh xạ từ Category ID/Tên sang ảnh Placeholder cục bộ (Pre-loaded)
+// Bản đồ ánh xạ từ Category ID/Tên sang ảnh Placeholder cục bộ dạng phẳng tối giản (Pre-loaded)
 const PLACEHOLDER_MAP: Record<string, any> = {
-  // Hỏa lực / Combat
-  'c1': require('../../assets/images/placeholder_combat.png'),
-  'combat': require('../../assets/images/placeholder_combat.png'),
-  'hoaluc': require('../../assets/images/placeholder_combat.png'),
-  'quân tư trang': require('../../assets/images/placeholder_combat.png'),
-  'quantutrang': require('../../assets/images/placeholder_combat.png'),
+  // Hỏa lực / Combat (AK-47)
+  'c1': require('../../assets/images/ak47.png'),
+  'combat': require('../../assets/images/ak47.png'),
+  'hoaluc': require('../../assets/images/ak47.png'),
+  'quân tư trang': require('../../assets/images/ak47.png'),
+  'quantutrang': require('../../assets/images/ak47.png'),
 
-  // Trinh sát & Drones
-  'c2': require('../../assets/images/placeholder_drones.png'),
-  'drones': require('../../assets/images/placeholder_drones.png'),
-  'trinhsat': require('../../assets/images/placeholder_drones.png'),
+  // Trinh sát & Drones (UAV Drone)
+  'c2': require('../../assets/images/drone.png'),
+  'drones': require('../../assets/images/drone.png'),
+  'trinhsat': require('../../assets/images/drone.png'),
 
-  // Năng lượng & Liên lạc / Power
-  'c3': require('../../assets/images/placeholder_power.png'),
-  'power': require('../../assets/images/placeholder_power.png'),
-  'nangluong': require('../../assets/images/placeholder_power.png'),
-  'luuniem': require('../../assets/images/placeholder_power.png'),
-  'luu niem': require('../../assets/images/placeholder_power.png'),
+  // Năng lượng & Liên lạc / Power (Solar Panel)
+  'c3': require('../../assets/images/solar_panel.png'),
+  'power': require('../../assets/images/solar_panel.png'),
+  'nangluong': require('../../assets/images/solar_panel.png'),
+  'luuniem': require('../../assets/images/solar_panel.png'),
+  'luu niem': require('../../assets/images/solar_panel.png'),
 
-  // Quân nhu & Sinh tồn / Survival
-  'c4': require('../../assets/images/placeholder_survival.png'),
-  'survival': require('../../assets/images/placeholder_survival.png'),
-  'quannuo': require('../../assets/images/placeholder_survival.png'),
-  'nhu yếu phẩm': require('../../assets/images/placeholder_survival.png'),
-  'nhuyepham': require('../../assets/images/placeholder_survival.png'),
+  // Quân nhu & Sinh tồn / Survival (MRE / Lương khô)
+  'c4': require('../../assets/images/mre.png'),
+  'survival': require('../../assets/images/mre.png'),
+  'quannuo': require('../../assets/images/mre.png'),
+  'nhu yếu phẩm': require('../../assets/images/mre.png'),
+  'nhuyepham': require('../../assets/images/mre.png'),
 
-  // Y tế / Medical
-  'c5': require('../../assets/images/placeholder_medical.png'),
-  'medical': require('../../assets/images/placeholder_medical.png'),
-  'y te': require('../../assets/images/placeholder_medical.png'),
-  'yte': require('../../assets/images/placeholder_medical.png'),
+  // Y tế / Medical (First-aid)
+  'c5': require('../../assets/images/first_aid.png'),
+  'medical': require('../../assets/images/first_aid.png'),
+  'y te': require('../../assets/images/first_aid.png'),
+  'yte': require('../../assets/images/first_aid.png'),
 
-  // Kỹ thuật / Maintenance
-  'c6': require('../../assets/images/placeholder_maintenance.png'),
-  'maintenance': require('../../assets/images/placeholder_maintenance.png'),
-  'kythuat': require('../../assets/images/placeholder_maintenance.png'),
-  'khác': require('../../assets/images/placeholder_maintenance.png'),
-  'khac': require('../../assets/images/placeholder_maintenance.png'),
+  // Kỹ thuật / Maintenance (Shovel / Xẻng)
+  'c6': require('../../assets/images/shovel.png'),
+  'maintenance': require('../../assets/images/shovel.png'),
+  'kythuat': require('../../assets/images/shovel.png'),
+  'khác': require('../../assets/images/shovel.png'),
+  'khac': require('../../assets/images/shovel.png'),
 };
 
 const getPlaceholderImage = (categoryId?: string): any => {

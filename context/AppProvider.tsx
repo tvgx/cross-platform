@@ -58,6 +58,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Store selectors — use individual primitives to avoid re-renders
   const isLoggedIn = useAuthStore((s) => s.isLoggedIn);
+  const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
 
   const setOnline = useNetworkStore((s) => s.setOnline);
@@ -127,14 +128,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // ── User info refresh ──────────────────────────────────────────────────────
 
   const refreshUserInfo = useCallback(async () => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !user) return;
     try {
-      const res = await userApi.getUserInfo();
+      const res = await userApi.getUserInfo(Number(user.id));
       if (res.success) updateUser(res.data);
     } catch {
       // Token may have been invalidated; axios interceptor handles 401.
     }
-  }, [isLoggedIn, updateUser]);
+  }, [isLoggedIn, user, updateUser]);
 
   // ── Network subscription ───────────────────────────────────────────────────
 

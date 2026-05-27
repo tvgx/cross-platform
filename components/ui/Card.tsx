@@ -52,7 +52,7 @@ export const Card = ({
 const styles = StyleSheet.create({
   // Product styles
   productContainer: {
-    backgroundColor: UI_CONFIG.colors.white,
+    backgroundColor: UI_CONFIG.colors.surface,
     borderRadius: UI_CONFIG.borderRadius.md,
     overflow: 'hidden',
     borderWidth: 1,
@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
 
   // Order styles
   orderContainer: {
-    backgroundColor: UI_CONFIG.colors.white,
+    backgroundColor: UI_CONFIG.colors.surface,
     borderRadius: UI_CONFIG.borderRadius.md,
     padding: UI_CONFIG.spacing.md,
     borderWidth: 1,

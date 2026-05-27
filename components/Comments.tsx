@@ -51,7 +51,7 @@ export const Comments = ({ comments = [], onAddComment, height }: CommentsProps)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: UI_CONFIG.colors.white,
+    backgroundColor: UI_CONFIG.colors.surface,
   },
   emptyState: {
     flex: 1,
@@ -75,11 +75,11 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
   },
   commentContent: {
     flex: 1,
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     padding: UI_CONFIG.spacing.md,
     borderRadius: UI_CONFIG.borderRadius.md,
   },

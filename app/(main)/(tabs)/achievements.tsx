@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
-import { SafeArea } from '../../components/layout/SafeArea';
-import { Header } from '../../components/navigation/Header';
-import { UI_CONFIG } from '../../constants/config';
-import { useRepositories } from '../../context/RepositoryProvider';
-import { useAuthStore } from '../../store/auth';
-import { StatusBadge } from '../../components/ui/StatusBadge';
-import { TacticalButton } from '../../components/ui/TacticalButton';
+import { SafeArea } from '../../../components/layout/SafeArea';
+import { Header } from '../../../components/navigation/Header';
+import { UI_CONFIG } from '../../../constants/config';
+import { useRepositories } from '../../../context/RepositoryProvider';
+import { useAuthStore } from '../../../store/auth';
+import { StatusBadge } from '../../../components/ui/StatusBadge';
+import { TacticalButton } from '../../../components/ui/TacticalButton';
 import { useRouter } from 'expo-router';
 
 export default function AchievementsScreen() {
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
   list: { padding: UI_CONFIG.spacing.md },
   card: {
     flexDirection: 'row',
-    backgroundColor: UI_CONFIG.colors.light,
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
     borderRadius: 4,
     marginBottom: UI_CONFIG.spacing.md,
     overflow: 'hidden',

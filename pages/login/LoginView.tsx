@@ -1,4 +1,3 @@
-import { Href, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
@@ -7,73 +6,123 @@ import { Input } from '../../components/ui/Input';
 import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { useRepositories } from '../../context/RepositoryProvider';
-import { apiCall } from '../../lib/api/client';
-import { User } from '../../types';
+import { authApi } from '../../lib/api/endpoints/auth';
+import { NavigationService } from '../../lib/navigation/NavigationService';
+import { ROUTES } from '../../lib/navigation/routes';
 
 export function LoginView() {
-  const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
   const { userRepository } = useRepositories();
 
-  const [username, setUsername] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    if (!username || !password) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.');
+    if (!phoneNumber || !password) {
+      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ số điện thoại và mật khẩu.');
       return;
     }
 
     setLoading(true);
 
     try {
-      // Look up user from SQLite via Repository
-      const user = userRepository.getUserByUsernameOrPhone(username);
+      // 1. Thử gọi API đăng nhập từ server
+      console.log('[Auth] Đang gọi API đăng nhập từ server...');
+      const res = await authApi.login({ phone_number: phoneNumber, password });
+      
+      if (res && (res.success || (res as any).code === '1000' || res.data)) {
+        const rawData = res.data as any;
+        
+        // Handle both expected formats: nested {user, tokens} or flat {id, username, token}
+        const user = rawData.user || {
+          id: rawData.id || String(Math.random()),
+          username: rawData.username || phoneNumber,
+          full_name: rawData.username || 'Chiến sĩ',
+          avatar: rawData.avatar,
+          rank: 'Chiến sĩ', // Default
+          virtual_balance: 0,
+          is_seller: false,
+          created_at: new Date().toISOString()
+        };
+        
+        const tokens = rawData.tokens || {
+          access_token: rawData.token
+        };
 
-      if (user) {
-        let accessToken = 'mock_token';
-        try {
-          // Lấy test token thực từ máy chủ dã chiến Cloudflare
-          const token = await apiCall<string>('GET', '/get-test-token');
-          if (token) {
-            accessToken = token;
-            console.log('[Auth] Đã lấy thành công JWT Test Token từ Cloudflare Server:', token);
-          }
-        } catch (apiErr) {
-          console.log('[Auth] Không kết nối được server Cloudflare để lấy Test Token (Chế độ Ngoại tuyến) - Dùng mock token.', apiErr);
+        if (!user.id) {
+           throw new Error('Dữ liệu trả về không hợp lệ');
         }
 
-        setAuth(user, { access_token: accessToken });
+        console.log('[Auth] Đăng nhập thành công từ server. User ID:', user.id);
+
+        // Lưu thông tin người dùng cục bộ vào SQLite để đồng bộ ngoại tuyến
+        userRepository.saveUser(user);
+        userRepository.createWallet(user.id, user.virtual_balance || 0);
+
+        setAuth(user, tokens);
         setLoading(false);
 
-        // Route by rank
-        if (user.rank === 'Sĩ quan' || user.rank === 'officer' || user.rank === 'admin') {
-          router.replace('/(main)/officer' as Href);
+        // Chuyển hướng theo cấp bậc/vai trò
+        if (user.rank === 'Sĩ quan' || user.rank === 'officer' || user.rank === 'admin' || (user as any).role === 'officer') {
+          NavigationService.replace(ROUTES.OFFICER);
         } else {
-          router.replace('/(main)/(tabs)' as Href);
+          NavigationService.replace(ROUTES.HOME);
         }
-      } else if (username === 'admin') {
-        // Hardcoded fallback for officer demo
-        const officer = userRepository.getUser('1');
-        if (officer) {
-          let accessToken = 'mock_token';
-          try {
-            const token = await apiCall<string>('GET', '/get-test-token');
-            if (token) accessToken = token;
-          } catch (e) {}
-          setAuth(officer, { access_token: accessToken });
-          setLoading(false);
-          router.replace('/(main)/officer' as Href);
-        }
+        return;
       } else {
+        // Lỗi nghiệp vụ từ server (ví dụ: sai mật khẩu)
         setLoading(false);
-        Alert.alert('Đăng nhập thất bại', 'Sai thông tin đăng nhập. Thử: nguyenvana / tranvanb');
+        const errMsg = res.message || 'Sai thông tin đăng nhập.';
+        Alert.alert('Đăng nhập thất bại', errMsg);
+        return;
       }
-    } catch (err) {
-      setLoading(false);
-      console.error(err);
-      Alert.alert('Lỗi', 'Đã có lỗi xảy ra, thử lại sau.');
+    } catch (apiErr: any) {
+      console.log('[Auth] Lỗi kết nối API đăng nhập hoặc lỗi nghiệp vụ:', apiErr);
+      
+      // Nếu là lỗi nghiệp vụ (ví dụ: HTTP status 4xx từ server) chứ không phải lỗi mạng/kết nối
+      if (apiErr.response && apiErr.response.status >= 400 && apiErr.response.status < 500) {
+        setLoading(false);
+        const errMsg = apiErr.response.data?.message || 'Sai thông tin đăng nhập.';
+        Alert.alert('Đăng nhập thất bại', errMsg);
+        return;
+      }
+
+      // 2. Chế độ ngoại tuyến (Offline Fallback): Thử tìm kiếm tài khoản trong SQLite local
+      console.log('[Auth] Kích hoạt chế độ đăng nhập ngoại tuyến (Offline Fallback) do lỗi mạng...');
+      try {
+        const user = userRepository.getUserByUsernameOrPhone(phoneNumber);
+        if (user) {
+          // Tạo JWT Token giả lập có định dạng giống thật
+          const mockJwtToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.local_offline_mode_user_${user.id}.signature_mock`;
+          setAuth(user, { access_token: mockJwtToken });
+          setLoading(false);
+
+          Alert.alert(
+            'Chế độ ngoại tuyến',
+            'Không kết nối được với máy chủ. Bạn đang đăng nhập bằng tài khoản lưu cục bộ trên thiết bị.',
+            [
+              {
+                text: 'Đồng ý',
+                onPress: () => {
+                  if (user.rank === 'Sĩ quan' || user.rank === 'officer' || user.rank === 'admin') {
+                    NavigationService.replace(ROUTES.OFFICER);
+                  } else {
+                    NavigationService.replace(ROUTES.HOME);
+                  }
+                }
+              }
+            ]
+          );
+        } else {
+          setLoading(false);
+          Alert.alert('Đăng nhập thất bại', 'Sai thông tin đăng nhập hoặc tài khoản không tồn tại trên thiết bị ở chế độ ngoại tuyến.');
+        }
+      } catch (dbErr) {
+        setLoading(false);
+        console.error('[Auth] Lỗi đăng nhập ngoại tuyến:', dbErr);
+        Alert.alert('Lỗi', 'Đã có lỗi xảy ra khi truy vấn dữ liệu cục bộ.');
+      }
     }
   };
 
@@ -87,9 +136,9 @@ export function LoginView() {
 
           <View style={styles.form}>
             <Input
-              placeholder="Số điện thoại hoặc Tên đăng nhập"
-              value={username}
-              onChangeText={setUsername}
+              placeholder="Số điện thoại"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
               autoCapitalize="none"
             />
             <Input
@@ -106,7 +155,7 @@ export function LoginView() {
 
             <View style={styles.signupPrompt}>
               <Text style={styles.signupText}>Chưa có tài khoản? </Text>
-              <TouchableOpacity onPress={() => router.push('/(auth)/signup' as Href)}>
+              <TouchableOpacity onPress={() => NavigationService.navigate(ROUTES.SIGNUP)}>
                 <Text style={styles.signupLink}>Đăng ký ngay</Text>
               </TouchableOpacity>
             </View>
