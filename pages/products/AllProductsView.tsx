@@ -46,17 +46,17 @@ export function AllProductsView() {
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(p =>
-        p.title.toLowerCase().includes(q) ||
+        (p.title || p.name || '').toLowerCase().includes(q) ||
         (p.description && p.description.toLowerCase().includes(q))
       );
     }
 
     if (sortBy === 'price_asc') {
-      result.sort((a, b) => a.price - b.price);
+      result.sort((a, b) => Number(a.price) - Number(b.price));
     } else if (sortBy === 'price_desc') {
-      result.sort((a, b) => b.price - a.price);
+      result.sort((a, b) => Number(b.price) - Number(a.price));
     } else if (sortBy === 'name_asc') {
-      result.sort((a, b) => a.title.localeCompare(b.title));
+      result.sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
     } else {
       result.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     }

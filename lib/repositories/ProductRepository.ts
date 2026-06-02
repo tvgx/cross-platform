@@ -175,7 +175,7 @@ export const ProductRepository = {
 
       return {
         id: row.id,
-        name: row.name,
+        title: row.name || row.title,
         description: row.description || '',
         price: row.price,
         price_new: row.price_new,
@@ -194,7 +194,7 @@ export const ProductRepository = {
         is_liked: row.is_liked === 1,
         created_at: row.created_at,
         updated_at: row.created_at,
-      };
+      } as unknown as Product;
     } catch (e) {
       console.error('[ProductRepo] Lỗi lấy chi tiết SQLite:', e);
       return null;

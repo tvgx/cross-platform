@@ -1,13 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, FlatList, Platform, RefreshControl, StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
 
 import { ProductCard } from '../../components/product/ProductCard';
-import { ProductRepository } from '../../lib/repositories/ProductRepository';
-import { useCatalogStore } from '../../store/catalog';
 import { useAppStore } from '../../store/app';
+import { useProductStore } from '../../store/product';
 
 import { ProductListItem, Category } from '../../types';
 import { useRouter } from 'expo-router';
@@ -16,135 +15,139 @@ import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export function HomeView() {
-  const storeProducts = useCatalogStore(state => state.products);
-  const categories = useCatalogStore(state => state.categories);
+  const categories = useProductStore(state => state.categories);
+  const displayedProducts = useProductStore(state => state.displayedProducts);
+  const isLoadingInitial = useProductStore(state => state.isLoadingInitial);
+  const isFetchingMore = useProductStore(state => state.isFetchingMore);
+  const hasMore = useProductStore(state => state.hasMore);
+  
+  const fetchInitialData = useProductStore(state => state.fetchInitialData);
+  const loadNextPage = useProductStore(state => state.loadNextPage);
+  const addInterest = useProductStore(state => state.addInterest);
+
   const isDarkMode = useAppStore(state => state.isDarkMode);
   const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
   const router = useRouter();
 
-  const [productsList, setProductsList] = useState<ProductListItem[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  const loadData = async (isForce = false) => {
-    if (isForce) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      await ProductRepository.syncCategoriesAndBrands(isForce);
-      const data = await ProductRepository.getProducts(undefined, isForce);
-      setProductsList(data);
-    } catch (error) {
-      console.error('[HomeView] Lỗi nạp dữ liệu dã chiến:', error);
-    } finally {
-      setRefreshing(false);
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadData();
+    fetchInitialData();
   }, []);
 
-  useEffect(() => {
-    if (storeProducts && storeProducts.length > 0) {
-      setProductsList(storeProducts);
-    }
-  }, [storeProducts]);
-
-  const handleRefresh = () => {
-    loadData(true);
-  };
+  const handleRefresh = useCallback(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const handleSearch = (query: string) => {
     console.log('Searching for:', query);
+    // TODO: implement search navigation
   };
 
   const handleCategoryPress = (category: Category) => {
+    // Lưu lịch sử quan tâm
+    addInterest(Number(category.id));
     console.log('Category pressed:', category.name);
+    // TODO: Navigate to category products screen
   };
 
-  const renderProduct = ({ item }: { item: ProductListItem }) => (
+  const renderProduct = useCallback(({ item }: { item: ProductListItem }) => (
     <ProductCard item={item} />
-  );
+  ), []);
+
+  const handleLoadMore = () => {
+    if (!isLoadingInitial && !isFetchingMore && hasMore) {
+      loadNextPage();
+    }
+  };
+
+  const renderFooter = () => {
+    if (!isFetchingMore) return null;
+    return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator size="small" color={currentColors.primary} />
+        <Text style={[styles.footerText, { color: currentColors.textLight }]}>Đang tải thêm...</Text>
+      </View>
+    );
+  };
 
   return (
     <SwipeWrapper currentTab="index">
       <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: currentColors.background }}>
         <CustomAppBar title="TiếpTế" showSearch={true} onSearch={handleSearch} />
-      <FlatList
-        data={productsList}
-        keyExtractor={item => item.id}
-        renderItem={renderProduct}
-        numColumns={Platform.OS === 'web' ? 4 : 2}
-        key={Platform.OS === 'web' ? 'web' : 'mobile'} // Force re-render on platform change
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.container}
-        columnWrapperStyle={styles.productRow}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[currentColors.primary]}
-            tintColor={currentColors.primary}
-          />
-        }
-        ListHeaderComponent={
-          <>
-            {/* Hero Banner */}
-            <View style={[styles.heroContainer, { backgroundColor: currentColors.surface }]}>
-              <Image 
-                source={{ uri: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800' }} 
-                style={styles.heroImage} 
-              />
-              <View style={[styles.heroOverlay, { backgroundColor: 'rgba(218, 37, 29, 0.4)' }]}>
-                <Text style={styles.heroTitle}>TiếpTế</Text>
-                <Text style={styles.heroSubTitle}>Nhân dân làm chủ</Text>
+        <FlatList
+          data={displayedProducts}
+          keyExtractor={(item, index) => `${item.id}-${index}`}
+          renderItem={renderProduct}
+          numColumns={Platform.OS === 'web' ? 4 : 2}
+          key={Platform.OS === 'web' ? 'web' : 'mobile'} // Force re-render on platform change
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.container}
+          columnWrapperStyle={styles.productRow}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoadingInitial && displayedProducts.length > 0}
+              onRefresh={handleRefresh}
+              colors={[currentColors.primary]}
+              tintColor={currentColors.primary}
+            />
+          }
+          ListHeaderComponent={
+            <>
+              {/* Hero Banner */}
+              <View style={[styles.heroContainer, { backgroundColor: currentColors.surface }]}>
+                <Image 
+                  source={{ uri: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800' }} 
+                  style={styles.heroImage} 
+                />
+                <View style={[styles.heroOverlay, { backgroundColor: 'rgba(218, 37, 29, 0.4)' }]}>
+                  <Text style={styles.heroTitle}>TiếpTế</Text>
+                  <Text style={styles.heroSubTitle}>Nhân dân làm chủ</Text>
+                </View>
               </View>
-            </View>
 
-            {/* Categories Slider */}
-            {categories && categories.length > 0 && (
-              <View style={[styles.categoriesSection, { backgroundColor: currentColors.surface }]}>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoriesScrollContent}
-                >
-                  {categories.map((cat, index) => (
-                    <TouchableOpacity 
-                      key={cat.id || index.toString()} 
-                      style={styles.categoryItem}
-                      onPress={() => handleCategoryPress(cat)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.categoryIconContainer, { backgroundColor: currentColors.surfaceLighter, borderColor: currentColors.border }]}>
-                        {cat.image_url ? (
-                          <Image source={{ uri: cat.image_url }} style={styles.categoryImage} />
-                        ) : (
-                          <Image source={{ uri: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(cat.name) + '&background=random&color=fff' }} style={styles.categoryImage} />
-                        )}
-                      </View>
-                      <Text style={[styles.categoryText, { color: currentColors.text }]} numberOfLines={2}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+              {/* Categories Slider */}
+              {categories && categories.length > 0 && (
+                <View style={[styles.categoriesSection, { backgroundColor: currentColors.surface }]}>
+                  <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.categoriesScrollContent}
+                  >
+                    {categories.map((cat, index) => (
+                      <TouchableOpacity 
+                        key={cat.id || index.toString()} 
+                        style={styles.categoryItem}
+                        onPress={() => handleCategoryPress(cat)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.categoryIconContainer, { backgroundColor: currentColors.surfaceLighter, borderColor: currentColors.border }]}>
+                          {cat.image_url ? (
+                            <Image source={{ uri: cat.image_url }} style={styles.categoryImage} />
+                          ) : (
+                            <Image source={{ uri: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(cat.name) + '&background=random&color=fff' }} style={styles.categoryImage} />
+                          )}
+                        </View>
+                        <Text style={[styles.categoryText, { color: currentColors.text }]} numberOfLines={2}>
+                          {cat.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Products Grid Title */}
+              <View style={styles.sectionContainer}>
+                <Text style={[styles.sectionTitle, { color: currentColors.primary }]}>SẢN PHẨM NỔI BẬT</Text>
+                {isLoadingInitial && displayedProducts.length === 0 && (
+                  <ActivityIndicator size="small" color={currentColors.primary} style={{ marginTop: 20 }} />
+                )}
               </View>
-            )}
-
-            {/* Products Grid Title */}
-            <View style={styles.sectionContainer}>
-              <Text style={[styles.sectionTitle, { color: currentColors.primary }]}>SẢN PHẨM NỔI BẬT</Text>
-              {loading && <ActivityIndicator size="small" color={currentColors.primary} style={{ marginTop: 10 }} />}
-            </View>
-          </>
-        }
-      />
+            </>
+          }
+        />
       </SafeArea>
     </SwipeWrapper>
   );
@@ -235,5 +238,15 @@ const styles = StyleSheet.create({
   productRow: {
     gap: 8, // 8px gap typical of Shopee
     paddingHorizontal: 8, // 8px padding on sides
+  },
+  footerLoader: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  footerText: {
+    fontSize: 13,
   }
 });

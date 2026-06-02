@@ -47,7 +47,8 @@ export const useCatalogStore = create<CatalogState>()(
         const newProducts = state.products.map(p => {
           if (p.id === productId) {
             const newIsLiked = !p.is_liked;
-            const newLikeCount = newIsLiked ? (p.like_count + 1) : Math.max(0, p.like_count - 1);
+            const currentLikeCount = Number(p.like_count || p.like || 0);
+            const newLikeCount = newIsLiked ? (currentLikeCount + 1) : Math.max(0, currentLikeCount - 1);
             
             // Cập nhật ngầm SQLite
             try {

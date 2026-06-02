@@ -77,6 +77,12 @@ export interface ProductListItem {
   comment?: string | number;
   is_liked?: boolean;
   is_stock?: boolean;
+  category_id?: string;
+  rating?: number;
+  sold_count?: number;
+  like_count?: number;
+  title?: string;
+  description?: string;
   variants?: ProductVariant[];
   created_at?: string;
 }
