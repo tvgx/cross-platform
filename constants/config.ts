@@ -1,7 +1,9 @@
-import { colors } from './colors';
+import { colors, lightColors, darkColors } from './colors';
 
 export const UI_CONFIG = {
   colors,
+  lightColors,
+  darkColors,
   spacing: {
     xs: 4,
     sm: 8,

@@ -10,6 +10,8 @@ import { UI_CONFIG } from '../../constants/config';
 import { Ionicons } from '@expo/vector-icons';
 import { useCatalogStore } from '../../store/catalog';
 import { useAuthStore } from '../../store/auth';
+import { useAppStore } from '../../store/app';
+import * as Haptics from 'expo-haptics';
 
 interface ProductCardProps {
   item: ProductListItem;
@@ -19,31 +21,35 @@ interface ProductCardProps {
 export const ProductCard = ({ item, style }: ProductCardProps) => {
   const toggleLike = useCatalogStore(state => state.toggleLike);
   const userId = useAuthStore(state => state.user?.id) || 'guest';
+  const isDarkMode = useAppStore(state => state.isDarkMode);
+  const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
 
   const handleLike = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleLike(item.id, userId);
   };
 
   return (
     <TouchableOpacity 
-      style={[styles.productCard, style]}
+      style={[styles.productCard, { backgroundColor: currentColors.surface }, style]}
       onPress={() => NavigationService.navigate(ROUTES.DETAIL(item.id))}
+      activeOpacity={0.9}
     >
       <View style={styles.imageContainer}>
-        <TacticalImage uri={item.images[0]} categoryId={item.category_id} style={styles.productImage} />
+        <TacticalImage uri={item.image || ''} categoryId={item.category_id} style={styles.productImage} />
         <TouchableOpacity style={styles.likeButton} onPress={handleLike}>
-          <Ionicons name={item.is_liked ? "heart" : "heart-outline"} size={22} color={item.is_liked ? "red" : "#666"} />
+          <Ionicons name={item.is_liked ? "heart" : "heart-outline"} size={20} color={item.is_liked ? currentColors.primary : "#999"} />
         </TouchableOpacity>
       </View>
       <View style={styles.productInfo}>
-        <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
-        <Text style={styles.productPrice}>{formatCurrency(item.price)}</Text>
+        <Text style={[styles.productTitle, { color: currentColors.text }]} numberOfLines={2}>{item.name}</Text>
+        <Text style={[styles.productPrice, { color: currentColors.primary }]}>{formatCurrency(Number(item.price_new) || Number(item.price))}</Text>
         <View style={styles.productFooter}>
-          <Text style={styles.soldCount}>Đã bán {item.sold_count}</Text>
           <View style={styles.ratingContainer}>
-            <IconSymbol name="star.fill" size={12} color="#FFD700" />
-            <Text style={styles.ratingText}>{item.rating}</Text>
+            <IconSymbol name="star.fill" size={12} color={currentColors.accent} />
+            <Text style={[styles.ratingText, { color: currentColors.textSecondary }]}>{item.rating}</Text>
           </View>
+          <Text style={[styles.soldCount, { color: currentColors.textSecondary }]}>Đã bán {item.sold_count}</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -53,17 +59,20 @@ export const ProductCard = ({ item, style }: ProductCardProps) => {
 const styles = StyleSheet.create({
   productCard: {
     flex: 1,
-    backgroundColor: '#fff',
-    borderRadius: UI_CONFIG.borderRadius.md,
+    borderRadius: UI_CONFIG.borderRadius.sm, // Smaller border radius
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: UI_CONFIG.colors.border,
     minWidth: Platform.OS === 'web' ? 200 : '45%',
+    // Very subtle shadow instead of a border
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: 150,
+    aspectRatio: 1, // Ensure square images (Shopee style)
   },
   productImage: {
     width: '100%',
@@ -74,10 +83,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 16,
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -85,25 +94,25 @@ const styles = StyleSheet.create({
     padding: UI_CONFIG.spacing.sm,
   },
   productTitle: {
-    fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '400',
     marginBottom: UI_CONFIG.spacing.xs,
-    height: 40,
+    height: 36, // Enough for exactly 2 lines
+    lineHeight: 18,
   },
   productPrice: {
     fontSize: UI_CONFIG.typography.sizes.md,
-    fontWeight: 'bold',
-    color: UI_CONFIG.colors.primary,
+    fontWeight: '500',
     marginBottom: UI_CONFIG.spacing.xs,
   },
   productFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 2,
   },
   soldCount: {
-    fontSize: UI_CONFIG.typography.sizes.xs,
-    color: UI_CONFIG.colors.textSecondary,
+    fontSize: 11,
   },
   ratingContainer: {
     flexDirection: 'row',
@@ -111,7 +120,6 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   ratingText: {
-    fontSize: UI_CONFIG.typography.sizes.xs,
-    color: UI_CONFIG.colors.textSecondary,
+    fontSize: 11,
   }
 });

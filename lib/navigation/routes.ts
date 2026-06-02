@@ -1,15 +1,15 @@
 export const ROUTES = {
   // Auth
-  WELCOME: '/(auth)/welcome' as const,
-  LOGIN: '/(auth)/login' as const,
-  SIGNUP: '/(auth)/signup' as const,
-  DECLARE_INFO: '/(auth)/declare-info' as const,
+  WELCOME: '/(auth)/welcome' as any,
+  LOGIN: '/(auth)/login' as any,
+  SIGNUP: '/(auth)/signup' as any,
+  DECLARE_INFO: '/(auth)/declare-info' as any,
   
   // Tabs (Main Feed)
-  HOME: '/(main)/(tabs)' as const,
-  UPLOAD: '/(main)/(tabs)/upload' as const,
-  CART: '/(main)/(tabs)/cart' as const,
-  PROFILE: '/(main)/(tabs)/profile' as const,
+  HOME: '/(main)' as any,
+  UPLOAD: '/(main)/upload' as any,
+  CART: '/(main)/cart' as any,
+  PROFILE: '/(main)/profile' as any,
   
   // Products & Categories
   ALL_PRODUCTS: '/(main)/all-products' as any,
@@ -18,17 +18,17 @@ export const ROUTES = {
   // Screens
   DETAIL: (id: string) => `/(main)/detail?id=${id}` as any,
   OFFICER: '/(main)/officer' as any,
-  ACHIEVEMENTS: '/(main)/achievements' as const,
+  ACHIEVEMENTS: '/(main)/achievements' as any,
   APPEAL: (id: string) => `/(main)/appeal-form?id=${id}` as any,
-  ORDER_SUCCESS: '/(main)/order-success' as const,
+  ORDER_SUCCESS: '/(main)/order-success' as any,
   
   // New Tab Screens
-  ORDERS: '/(main)/(tabs)/orders' as any,
-  LIKED_PRODUCTS: '/(main)/(tabs)/liked' as any,
-  PROFILE_INFO: '/(main)/(tabs)/personal-info' as any,
-  CHANGE_PASSWORD: '/(main)/(tabs)/change-password' as any,
-  SETTINGS: '/(main)/(tabs)/settings' as any,
-  NOTIFICATIONS: '/(main)/(tabs)/notifications' as any,
+  ORDERS: '/(main)/orders' as any,
+  LIKED_PRODUCTS: '/(main)/liked' as any,
+  PROFILE_INFO: '/(main)/personal-info' as any,
+  CHANGE_PASSWORD: '/(main)/change-password' as any,
+  SETTINGS: '/(main)/settings' as any,
+  NOTIFICATIONS: '/(main)/notifications' as any,
   
   // Root Modals
   MODAL: '/modal' as const

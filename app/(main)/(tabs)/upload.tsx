@@ -8,7 +8,7 @@ import { useAuthStore } from '../../../store/auth';
 import { useRepositories } from '../../../context/RepositoryProvider';
 import { cacheMedia } from '../../../lib/storage/fileSystem';
 import * as ImagePicker from 'expo-image-picker';
-import { Header } from '../../../components/navigation/Header';
+import { CustomAppBar } from '../../../components/navigation/CustomAppBar';
 import { StatusBadge } from '../../../components/ui/StatusBadge';
 import { SyncService } from '../../../services/SyncService';
 import { SwipeWrapper } from '../../../components/navigation/SwipeWrapper';
@@ -86,7 +86,7 @@ export default function UploadScreen() {
   return (
     <SwipeWrapper currentTab="upload">
       <SafeArea edges={['top']}>
-        <Header title="CHỨNG MINH CHIẾN TÍCH" leftIcon="menu" rightIcon="cloud-upload" />
+        <CustomAppBar title="CHỨNG MINH CHIẾN TÍCH" />
       
       <View style={styles.container}>
         <Text style={styles.subtitle}>

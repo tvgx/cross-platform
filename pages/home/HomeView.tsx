@@ -7,6 +7,7 @@ import { UI_CONFIG } from '../../constants/config';
 import { ProductCard } from '../../components/product/ProductCard';
 import { ProductRepository } from '../../lib/repositories/ProductRepository';
 import { useCatalogStore } from '../../store/catalog';
+import { useAppStore } from '../../store/app';
 
 import { ProductListItem, Category } from '../../types';
 import { useRouter } from 'expo-router';
@@ -17,6 +18,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 export function HomeView() {
   const storeProducts = useCatalogStore(state => state.products);
   const categories = useCatalogStore(state => state.categories);
+  const isDarkMode = useAppStore(state => state.isDarkMode);
+  const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
   const router = useRouter();
 
   const [productsList, setProductsList] = useState<ProductListItem[]>([]);
@@ -31,9 +34,7 @@ export function HomeView() {
     }
 
     try {
-      // 1. Đồng bộ Danh mục và Thương hiệu dã chiến cục bộ/máy chủ
       await ProductRepository.syncCategoriesAndBrands(isForce);
-      // 2. Lấy danh sách sản phẩm thông qua Repository (Offline-First SSoT)
       const data = await ProductRepository.getProducts(undefined, isForce);
       setProductsList(data);
     } catch (error) {
@@ -48,10 +49,8 @@ export function HomeView() {
     loadData();
   }, []);
 
-  // Lắng nghe thay đổi của Zustand store (khi sync ngầm hoàn thành) để cập nhật UI tức thời
   useEffect(() => {
     if (storeProducts && storeProducts.length > 0) {
-      // Lọc nhẹ hoặc gán thẳng từ store
       setProductsList(storeProducts);
     }
   }, [storeProducts]);
@@ -61,14 +60,10 @@ export function HomeView() {
   };
 
   const handleSearch = (query: string) => {
-    // Navigate to a search page or filter the current list.
     console.log('Searching for:', query);
-    // Placeholder navigation, you can adjust the route as needed
-    // router.push({ pathname: '/search', params: { q: query } });
   };
 
   const handleCategoryPress = (category: Category) => {
-    // router.push({ pathname: '/category/[id]', params: { id: category.id } });
     console.log('Category pressed:', category.name);
   };
 
@@ -78,8 +73,8 @@ export function HomeView() {
 
   return (
     <SwipeWrapper currentTab="index">
-      <SafeArea edges={['top']} style={{ flex: 1 }}>
-        <CustomAppBar title="Army+" showSearch={true} onSearch={handleSearch} />
+      <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: currentColors.background }}>
+        <CustomAppBar title="TiếpTế" showSearch={true} onSearch={handleSearch} />
       <FlatList
         data={productsList}
         keyExtractor={item => item.id}
@@ -93,26 +88,27 @@ export function HomeView() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            colors={[UI_CONFIG.colors.primary]}
-            tintColor={UI_CONFIG.colors.primary}
+            colors={[currentColors.primary]}
+            tintColor={currentColors.primary}
           />
         }
         ListHeaderComponent={
           <>
             {/* Hero Banner */}
-            <View style={styles.heroContainer}>
+            <View style={[styles.heroContainer, { backgroundColor: currentColors.surface }]}>
               <Image 
                 source={{ uri: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800' }} 
                 style={styles.heroImage} 
               />
-              <View style={styles.heroOverlay}>
-                <Text style={styles.heroTitle}>Army+</Text>
+              <View style={[styles.heroOverlay, { backgroundColor: 'rgba(218, 37, 29, 0.4)' }]}>
+                <Text style={styles.heroTitle}>TiếpTế</Text>
+                <Text style={styles.heroSubTitle}>Nhân dân làm chủ</Text>
               </View>
             </View>
 
             {/* Categories Slider */}
             {categories && categories.length > 0 && (
-              <View style={styles.categoriesSection}>
+              <View style={[styles.categoriesSection, { backgroundColor: currentColors.surface }]}>
                 <ScrollView 
                   horizontal 
                   showsHorizontalScrollIndicator={false}
@@ -125,14 +121,14 @@ export function HomeView() {
                       onPress={() => handleCategoryPress(cat)}
                       activeOpacity={0.7}
                     >
-                      <View style={styles.categoryIconContainer}>
+                      <View style={[styles.categoryIconContainer, { backgroundColor: currentColors.surfaceLighter, borderColor: currentColors.border }]}>
                         {cat.image_url ? (
                           <Image source={{ uri: cat.image_url }} style={styles.categoryImage} />
                         ) : (
                           <Image source={{ uri: 'https://ui-avatars.com/api/?name=' + encodeURIComponent(cat.name) + '&background=random&color=fff' }} style={styles.categoryImage} />
                         )}
                       </View>
-                      <Text style={styles.categoryText} numberOfLines={2}>
+                      <Text style={[styles.categoryText, { color: currentColors.text }]} numberOfLines={2}>
                         {cat.name}
                       </Text>
                     </TouchableOpacity>
@@ -143,8 +139,8 @@ export function HomeView() {
 
             {/* Products Grid Title */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Sản phẩm bán chạy</Text>
-              {loading && <ActivityIndicator size="small" color={UI_CONFIG.colors.primary} style={{ marginTop: 10 }} />}
+              <Text style={[styles.sectionTitle, { color: currentColors.primary }]}>SẢN PHẨM NỔI BẬT</Text>
+              {loading && <ActivityIndicator size="small" color={currentColors.primary} style={{ marginTop: 10 }} />}
             </View>
           </>
         }
@@ -160,9 +156,8 @@ const styles = StyleSheet.create({
   },
   heroContainer: {
     width: '100%',
-    height: 160,
+    height: 140, // Slightly shorter for a tighter feel
     position: 'relative',
-    backgroundColor: UI_CONFIG.colors.surface,
   },
   heroImage: {
     width: '100%',
@@ -171,43 +166,49 @@ const styles = StyleSheet.create({
   },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   heroTitle: {
-    color: '#fff',
-    fontSize: 32,
+    color: '#FFDE00', // Gold color for Communism theme
+    fontSize: 36,
     fontWeight: '900',
     letterSpacing: 2,
-    textShadowColor: 'rgba(0, 0, 0, 0.75)',
-    textShadowOffset: {width: -1, height: 1},
-    textShadowRadius: 10
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: {width: 1, height: 1},
+    textShadowRadius: 4
+  },
+  heroSubTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 1,
+    marginTop: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: {width: 1, height: 1},
+    textShadowRadius: 4
   },
   categoriesSection: {
-    backgroundColor: UI_CONFIG.colors.background,
     paddingVertical: UI_CONFIG.spacing.md,
     marginBottom: UI_CONFIG.spacing.sm,
   },
   categoriesScrollContent: {
     paddingHorizontal: UI_CONFIG.spacing.md,
-    gap: UI_CONFIG.spacing.md,
+    gap: UI_CONFIG.spacing.sm, // Tighter gap
   },
   categoryItem: {
     width: SCREEN_WIDTH * 0.2, // ~20% of screen width per item (5 items visible)
     alignItems: 'center',
   },
   categoryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: UI_CONFIG.colors.surfaceLighter,
+    width: 44,
+    height: 44,
+    borderRadius: 22, // Circular
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: UI_CONFIG.colors.border,
   },
   categoryImage: {
     width: '100%',
@@ -216,26 +217,23 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 11,
-    color: UI_CONFIG.colors.text,
     textAlign: 'center',
     fontWeight: '500',
     lineHeight: 14,
   },
-
   sectionContainer: {
     paddingHorizontal: UI_CONFIG.spacing.md,
-    marginBottom: UI_CONFIG.spacing.xl,
+    marginBottom: UI_CONFIG.spacing.sm, // Tighter
+    marginTop: UI_CONFIG.spacing.md,
+    alignItems: 'center', // Center title for a more classic feel
   },
   sectionTitle: {
-    fontSize: UI_CONFIG.typography.sizes.lg,
+    fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: UI_CONFIG.spacing.md,
-    color: UI_CONFIG.colors.text,
-  },
-  productList: {
-    gap: UI_CONFIG.spacing.md,
+    marginBottom: UI_CONFIG.spacing.xs,
   },
   productRow: {
-    gap: UI_CONFIG.spacing.md,
+    gap: 8, // 8px gap typical of Shopee
+    paddingHorizontal: 8, // 8px padding on sides
   }
 });

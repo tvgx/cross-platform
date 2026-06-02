@@ -1,18 +1,18 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, Alert } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { CommentItem, Comments } from '../../../components/Comments';
 import { SafeArea } from '../../../components/layout/SafeArea';
 import { Header } from '../../../components/navigation/Header';
-import { Comments, CommentItem } from '../../../components/Comments';
-import { UI_CONFIG } from '../../../constants/config';
-import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useRepositories } from '../../../context/RepositoryProvider';
-import { Product } from '../../../types';
-import { useCartStore } from '../../../store/cart';
 import { Button } from '../../../components/ui/Button';
 import { IconSymbol } from '../../../components/ui/icon-symbol';
-import { useAuthStore } from '../../../store/auth';
 import { Input } from '../../../components/ui/Input';
 import { TacticalImage } from '../../../components/ui/TacticalImage';
+import { UI_CONFIG } from '../../../constants/config';
+import { useRepositories } from '../../../context/RepositoryProvider';
+import { useAuthStore } from '../../../store/auth';
+import { useCartStore } from '../../../store/cart';
+import { Product } from '../../../types';
 
 export default function DetailScreen() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function DetailScreen() {
   const [product, setProduct] = useState<Product | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [newComment, setNewComment] = useState('');
-  
+
   const addItem = useCartStore(state => state.addItem);
   const user = useAuthStore(state => state.user);
 
@@ -63,8 +63,8 @@ export default function DetailScreen() {
       addItem({
         product_id: product.id,
         title: product.title,
-        price: product.price,
-        image: product.images[0],
+        price: Number(product.price),
+        image: product.images?.[0] || undefined,
         quantity: 1,
         seller_id: product.seller_id,
         seller_name: product.seller_name
@@ -129,12 +129,12 @@ export default function DetailScreen() {
         onPressRight={() => router.push('/(main)/(tabs)/cart')}
       />
       <ScrollView contentContainerStyle={styles.container}>
-        <TacticalImage uri={product.images[0]} categoryId={product.category_id} style={styles.imagePlaceholder} />
+        <TacticalImage uri={product.images?.[0] || ''} categoryId={product.category_id} style={styles.imagePlaceholder} />
         
         <View style={styles.infoContainer}>
           <Text style={styles.title}>{product.title}</Text>
-          <Text style={styles.price}>{product.price.toLocaleString('vi-VN')} ₫</Text>
-          
+          <Text style={styles.price}>{Number(product.price).toLocaleString('vi-VN')} ₫</Text>
+
           <View style={styles.statsRow}>
             <Text style={styles.statsText}>Đã bán: {product.sold_count}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -153,8 +153,8 @@ export default function DetailScreen() {
               backgroundColor={product.is_liked ? UI_CONFIG.colors.primary : UI_CONFIG.colors.surfaceLighter}
               textColor={product.is_liked ? UI_CONFIG.colors.white : UI_CONFIG.colors.text}
             />
-            <Button 
-              text="Thêm vào Giỏ" 
+            <Button
+              text="Thêm vào Giỏ"
               onPress={handleAddToCart}
               style={{ flex: 2, marginLeft: 10 }}
             />
@@ -163,7 +163,7 @@ export default function DetailScreen() {
 
         <View style={styles.commentsSection}>
           <Text style={styles.commentsTitle}>Bình luận</Text>
-          
+
           <View style={styles.commentInputRow}>
             <View style={{ flex: 1 }}>
               <Input placeholder="Viết bình luận..." value={newComment} onChangeText={setNewComment} />

@@ -72,9 +72,10 @@ export const rewardsApi = {
   }) => apiCall<ApiResponse<RewardAppeal>>('POST', '/create_reward_appeal', body),
 };
 
-// ─── Cart ─────────────────────────────────────────────────────────────────────
+// ─── Cart (Local Only) ────────────────────────────────────────────────────────
 
 export const cartApi = {
-  addToCart: (body: { product_id: string; quantity: number }) =>
-    apiCall<ApiResponse<{ cart_id: string }>>('POST', '/add_to_cart', body),
+  // Tạm thời loại bỏ để xử lý local:
+  // addToCart: (body: { product_id: string; quantity: number }) =>
+  //   apiCall<ApiResponse<{ cart_id: string }>>('POST', '/add_to_cart', body),
 };

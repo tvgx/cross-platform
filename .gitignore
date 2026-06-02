@@ -46,3 +46,7 @@ app-example
 
 local.env
 *.txt
+
+# Ignore data and scripts
+data/
+scripts/

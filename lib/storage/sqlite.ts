@@ -187,18 +187,20 @@ export const initDB = () => {
         seller_id TEXT,
         category_id TEXT,
         brand_id TEXT,
-        title TEXT,
+        name TEXT,         -- Thay đổi từ title
         description TEXT,
         price INTEGER DEFAULT 0,
-        images TEXT,       -- JSON string ảnh
-        image_urls TEXT,   -- Khớp với server (JSON string array)
+        price_new INTEGER DEFAULT 0,
+        image TEXT,        -- Thay đổi từ images
+        video TEXT,
         stock INTEGER DEFAULT 0,
+        is_stock BOOLEAN DEFAULT 0,
         sold_count INTEGER DEFAULT 0,
         rating REAL DEFAULT 0,
-        like_count INTEGER DEFAULT 0,
+        like INTEGER DEFAULT 0,     -- Thay đổi từ like_count
+        comment INTEGER DEFAULT 0,  -- Thêm mới
         is_liked BOOLEAN DEFAULT 0,
-        created_at TEXT,
-        FOREIGN KEY (seller_id) REFERENCES Users (id)
+        created_at TEXT
       );
     `);
 

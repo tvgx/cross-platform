@@ -59,20 +59,25 @@ export interface Product {
   updated_at: string;
 }
 
+export interface ProductVariant {
+  id: string;
+  size?: string;
+  color?: string;
+  stock: string | number;
+}
+
 export interface ProductListItem {
   id: string;
-  title: string;
-  description?: string;
-  price: number;
-  images: string[];
-  seller_id: string;
-  seller_name: string;
-  rating: number;
-  like_count: number;
-  is_liked: boolean;
-  stock: number;
-  sold_count: number;
-  category_id: string;
+  name: string;
+  price: string | number;
+  price_new?: string | number;
+  image?: string | null;
+  video?: string | null;
+  like?: string | number;
+  comment?: string | number;
+  is_liked?: boolean;
+  is_stock?: boolean;
+  variants?: ProductVariant[];
   created_at?: string;
 }
 

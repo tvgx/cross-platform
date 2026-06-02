@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, Image, Animated } from 'react-native';
 import { SafeArea } from '../../../components/layout/SafeArea';
-import { Header } from '../../../components/navigation/Header';
+import { CustomAppBar } from '../../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../../constants/config';
 import { useNavigation, useRouter } from 'expo-router';
 import { DrawerActions } from '@react-navigation/native';
@@ -117,12 +117,7 @@ export default function CartScreen() {
   return (
     <SwipeWrapper currentTab="cart">
       <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: UI_CONFIG.colors.background }}>
-        <Header 
-          leftIcon="menu" 
-          onPressLeft={() => navigation.dispatch(DrawerActions.openDrawer())} 
-          title="Quân Nhu / Giỏ Hàng"
-          rightIcon="notifications"
-        />
+        <CustomAppBar title="Quân Nhu / Giỏ Hàng" />
         
         {items.length === 0 ? (
           <View style={styles.center}>

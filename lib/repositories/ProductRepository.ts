@@ -90,16 +90,19 @@ export const ProductRepository = {
       
       return rows.map(row => ({
         id: row.id,
-        title: row.title,
+        name: row.name,
         price: row.price,
-        // Chuyển mảng ảnh lưu dưới dạng chuỗi JSON trong SQLite thành mảng string[]
-        images: this.safeParseJSON(row.images, []),
+        price_new: row.price_new,
+        image: row.image,
+        video: row.video,
         seller_id: row.seller_id,
         seller_name: 'Nhà cung cấp quân nhu', // Fallback tên
         rating: row.rating || 5.0,
-        like_count: row.like_count || 0,
+        like: row.like || 0,
+        comment: row.comment || 0,
         is_liked: row.is_liked === 1,
         stock: row.stock || 0,
+        is_stock: row.is_stock === 1,
         sold_count: row.sold_count || 0,
         category_id: row.category_id,
       }));
@@ -125,22 +128,25 @@ export const ProductRepository = {
             // Lưu vào SQLite dã chiến cục bộ
             db.runSync(
               `INSERT OR REPLACE INTO Products 
-              (id, seller_id, category_id, brand_id, title, description, price, images, image_urls, stock, sold_count, rating, like_count, is_liked, created_at) 
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              (id, seller_id, category_id, brand_id, name, description, price, price_new, image, video, stock, is_stock, sold_count, rating, like, comment, is_liked, created_at) 
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 String(p.id),
                 p.seller_id ? String(p.seller_id) : '1',
                 p.category_id ? String(p.category_id) : '1',
                 p.brand_id ? String(p.brand_id) : 'b1',
-                p.title || p.name || 'Không có tên',
+                p.name || p.title || 'Không có tên',
                 p.description || '',
                 Number(p.price) || 0,
-                JSON.stringify(p.images ? p.images : (p.image ? [p.image] : [])),
-                JSON.stringify(p.images ? p.images : (p.image ? [p.image] : [])),
+                Number(p.price_new) || 0,
+                p.image || null,
+                p.video || null,
                 p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
+                p.is_stock ? 1 : 0,
                 p.sold_count || 0,
                 p.rating || 5.0,
-                p.like_count || Number(p.like) || 0,
+                p.like || p.like_count || 0,
+                p.comment || 0,
                 p.is_liked === true || p.is_liked === '1' ? 1 : 0,
                 p.created_at || new Date().toISOString()
               ]
@@ -169,19 +175,22 @@ export const ProductRepository = {
 
       return {
         id: row.id,
-        title: row.title,
+        name: row.name,
         description: row.description || '',
         price: row.price,
-        images: this.safeParseJSON(row.images, []),
+        price_new: row.price_new,
+        image: row.image,
+        video: row.video,
         category_id: row.category_id,
         brand_id: row.brand_id,
         seller_id: row.seller_id,
         seller_name: 'Nhà cung cấp quân nhu',
         stock: row.stock || 0,
+        is_stock: row.is_stock === 1,
         sold_count: row.sold_count || 0,
         rating: row.rating || 5.0,
-        rating_count: 10,
-        like_count: row.like_count || 0,
+        like: row.like || 0,
+        comment: row.comment || 0,
         is_liked: row.is_liked === 1,
         created_at: row.created_at,
         updated_at: row.created_at,
@@ -239,19 +248,25 @@ export const ProductRepository = {
         items.forEach((p: any) => {
           db.runSync(
             `INSERT OR REPLACE INTO Products 
-            (id, seller_id, category_id, title, price, images, stock, sold_count, rating, like_count, is_liked, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, seller_id, category_id, brand_id, name, description, price, price_new, image, video, stock, is_stock, sold_count, rating, like, comment, is_liked, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               String(p.id),
               p.seller_id ? String(p.seller_id) : '1',
               p.category_id ? String(p.category_id) : '1',
-              p.title || p.name || 'Không có tên',
+              p.brand_id ? String(p.brand_id) : 'b1',
+              p.name || p.title || 'Không có tên',
+              p.description || '',
               Number(p.price) || 0,
-              JSON.stringify(p.images ? p.images : (p.image ? [p.image] : [])),
+              Number(p.price_new) || 0,
+              p.image || null,
+              p.video || null,
               p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
+              p.is_stock ? 1 : 0,
               p.sold_count || 0,
               p.rating || 5.0,
-              p.like_count || Number(p.like) || 0,
+              p.like || p.like_count || 0,
+              p.comment || 0,
               p.is_liked === true || p.is_liked === '1' ? 1 : 0,
               p.created_at || new Date().toISOString()
             ]
@@ -287,7 +302,7 @@ export const ProductRepository = {
       db.withTransactionSync(() => {
         // A. Cập nhật bảng Products
         db.runSync(
-          'UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?',
+          'UPDATE Products SET is_liked = ?, like = ? WHERE id = ?',
           [isLiked ? 1 : 0, likeCount, productId]
         );
 

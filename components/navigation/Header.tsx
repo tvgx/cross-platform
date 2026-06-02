@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { UI_CONFIG } from '../../constants/config';
 import { Button } from '../ui/Button';
+import { useAppStore } from '../../store/app';
 
 export interface HeaderProps {
   leftIcon?: string;
@@ -16,7 +17,7 @@ export interface HeaderProps {
 export const Header = ({
   leftIcon = 'menu',
   title = 'App Title',
-  rightIcon = 'search',
+  rightIcon,
   showNotification = true,
   onPressLeft,
   onPressRight,
@@ -24,9 +25,10 @@ export const Header = ({
 }: HeaderProps) => {
   const router = require('expo-router').useRouter();
   const navigation = require('expo-router').useNavigation();
+  const isDarkMode = useAppStore(state => state.isDarkMode);
+  const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
   
   const handlePressLeft = onPressLeft || (() => {
-    // Nếu leftIcon là menu, mở drawer
     if (leftIcon === 'menu') {
       if ((navigation as any).toggleDrawer) {
         (navigation as any).toggleDrawer();
@@ -45,30 +47,38 @@ export const Header = ({
     router.push(ROUTES.NOTIFICATIONS);
   });
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: currentColors.primary, borderBottomColor: currentColors.primary }]}>
       <Button 
         variant="icon" 
         iconName={leftIcon as any} 
         onPress={handlePressLeft} 
-        textColor={UI_CONFIG.colors.text}
+        textColor={currentColors.white}
       />
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: currentColors.white }]}>{title}</Text>
       <View style={styles.rightContainer}>
         {rightIcon && (
           <Button 
             variant="icon" 
             iconName={rightIcon as any} 
             onPress={onPressRight} 
-            textColor={UI_CONFIG.colors.text}
+            textColor={currentColors.white}
           />
         )}
         {showNotification && (
-          <Button 
-            variant="icon" 
-            iconName="notifications" 
-            onPress={handlePressNotification} 
-            textColor={UI_CONFIG.colors.text}
-          />
+          <>
+            <Button 
+              variant="icon" 
+              iconName="chatbubbles" 
+              onPress={() => router.push('/chat' as any)} 
+              textColor={currentColors.white}
+            />
+            <Button 
+              variant="icon" 
+              iconName="notifications" 
+              onPress={handlePressNotification} 
+              textColor={currentColors.white}
+            />
+          </>
         )}
       </View>
     </View>
@@ -82,14 +92,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: UI_CONFIG.spacing.md,
     height: 64,
-    backgroundColor: UI_CONFIG.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: UI_CONFIG.colors.border,
   },
   title: {
     fontSize: 16,
     fontWeight: '900',
-    color: UI_CONFIG.colors.text,
     letterSpacing: 2,
     textTransform: 'uppercase',
   },

@@ -4,19 +4,22 @@ import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
+import { useAppStore } from '../../store/app';
 import { IconSymbol } from '../ui/icon-symbol';
 
 interface CustomAppBarProps {
-  title: string;
+  title?: string;
   showBack?: boolean;
   showSearch?: boolean;
   onSearch?: (query: string) => void;
 }
 
-export function CustomAppBar({ title, showBack = false, showSearch = false, onSearch }: CustomAppBarProps) {
+export function CustomAppBar({ title = "TiếpTế", showBack = false, showSearch = false, onSearch }: CustomAppBarProps) {
   const navigation = useNavigation();
   const router = useRouter();
   const user = useAuthStore(state => state.user);
+  const isDarkMode = useAppStore(state => state.isDarkMode);
+  const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleLeftPress = () => {
@@ -34,34 +37,34 @@ export function CustomAppBar({ title, showBack = false, showSearch = false, onSe
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: currentColors.primary, borderBottomColor: currentColors.primary }]}>
       <TouchableOpacity onPress={handleLeftPress} style={styles.iconButton}>
-        <IconSymbol name={showBack ? "chevron.left" : "line.3.horizontal"} size={24} color={UI_CONFIG.colors.text} />
+        <IconSymbol name={showBack ? "chevron.left" : "line.3.horizontal"} size={24} color={currentColors.white} />
       </TouchableOpacity>
 
       {showSearch ? (
-        <View style={styles.searchContainer}>
+        <View style={[styles.searchContainer, { backgroundColor: currentColors.surface }]}>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: currentColors.text }]}
             placeholder="Tìm kiếm sản phẩm..."
-            placeholderTextColor={UI_CONFIG.colors.textSecondary}
+            placeholderTextColor={currentColors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearchSubmit}
             returnKeyType="search"
           />
           <TouchableOpacity style={styles.searchIconButton} onPress={handleSearchSubmit}>
-            <IconSymbol name="magnifyingglass" size={20} color={UI_CONFIG.colors.textSecondary} />
+            <IconSymbol name="magnifyingglass" size={20} color={currentColors.primary} />
           </TouchableOpacity>
         </View>
       ) : (
-        <Text style={styles.title} numberOfLines={1}>{title}</Text>
+        <Text style={[styles.title, { color: currentColors.white }]} numberOfLines={1}>{title}</Text>
       )}
 
       <View style={styles.rightContainer}>
         {user && (
           <TouchableOpacity style={styles.iconButton}>
-            <IconSymbol name="bell" size={24} color={UI_CONFIG.colors.text} />
+            <IconSymbol name="bell" size={24} color={currentColors.white} />
           </TouchableOpacity>
         )}
       </View>
@@ -76,9 +79,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: UI_CONFIG.spacing.md,
-    backgroundColor: UI_CONFIG.colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: UI_CONFIG.colors.border,
   },
   iconButton: {
     padding: UI_CONFIG.spacing.xs,
@@ -88,7 +89,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: UI_CONFIG.typography.sizes.lg,
     fontWeight: UI_CONFIG.typography.weights.bold,
-    color: UI_CONFIG.colors.text,
   },
   rightContainer: {
     flexDirection: 'row',
@@ -99,8 +99,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: UI_CONFIG.colors.surface,
-    borderRadius: 8,
+    borderRadius: UI_CONFIG.borderRadius.sm, // Sharper border radius
     marginHorizontal: UI_CONFIG.spacing.md,
     paddingHorizontal: UI_CONFIG.spacing.sm,
     height: 36,
@@ -108,7 +107,6 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: '100%',
-    color: UI_CONFIG.colors.text,
     fontSize: UI_CONFIG.typography.sizes.md,
     padding: 0, // override default padding
   },
