@@ -72,7 +72,6 @@ export default function ChatScreen() {
             data={conversations}
             keyExtractor={item => item.id}
             renderItem={renderItem}
-            estimatedItemSize={80}
             contentContainerStyle={styles.list}
           />
         )}

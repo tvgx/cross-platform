@@ -24,6 +24,7 @@ export default function CheckoutScreen() {
   const removeCartItem = useCartStore(state => state.removeItem);
   const clearSelectedCart = useCartStore(state => state.clearSelected);
   const user = useAuthStore(state => state.user);
+  const balance = useAuthStore(state => state.balance);
 
   const [addresses, setAddresses] = useState<OrderAddress[]>([]);
   const [shippingFees, setShippingFees] = useState<Record<string, number>>({});
@@ -99,6 +100,15 @@ export default function CheckoutScreen() {
       return;
     }
     if (!user) return;
+
+    const itemsTotal = checkoutItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalShipFee = Object.values(shippingFees).reduce((sum, fee) => sum + fee, 0);
+    const grandTotal = itemsTotal + totalShipFee;
+
+    if (balance < grandTotal) {
+      Alert.alert('Lỗi', `Số dư điểm thưởng không đủ. Bạn cần thêm ${(grandTotal - balance).toLocaleString('vi-VN')} ₫`);
+      return;
+    }
 
     setIsPlacingOrder(true);
     try {

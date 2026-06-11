@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { SafeArea } from '../../../components/layout/SafeArea';
-import { UI_CONFIG } from '../../../constants/config';
-import { TacticalButton } from '../../../components/ui/TacticalButton';
+import { SafeArea } from '../../components/layout/SafeArea';
+import { UI_CONFIG } from '../../constants/config';
+import { TacticalButton } from '../../components/ui/TacticalButton';
 import { useRouter } from 'expo-router';
-import { IconSymbol } from '../../../components/ui/icon-symbol';
+import { IconSymbol } from '../../components/ui/icon-symbol';
 
 export default function OrderSuccessScreen() {
   const router = useRouter();

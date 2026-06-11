@@ -7,7 +7,6 @@ import { MessageRepository } from '../lib/repositories/MessageRepository';
 import { apiCall } from '../lib/api/client';
 import { useNetworkStore } from '../store/network';
 
-const MOCK_API_URL = 'https://api.army-plus.vn/v1';
 
 let activeOnlineInterval: any = null;
 let isInitialized = false;
@@ -88,14 +87,18 @@ export const SyncService = {
         return true;
       }
 
+      const addressId = parseInt(payload.address_id);
+      if (isNaN(addressId)) throw new Error(`Invalid address_id: ${payload.address_id}`);
+
       // 1. Ánh xạ chuẩn CreateOrderDto
       const apiPayload = {
-        items: payload.items.map((item: any) => ({
-          product_id: isNaN(parseInt(item.product_id)) ? 1 : parseInt(item.product_id),
-          quantity: item.quantity
-        })),
+        items: payload.items.map((item: any) => {
+          const pid = parseInt(item.product_id);
+          if (isNaN(pid)) throw new Error(`Invalid product_id: ${item.product_id}`);
+          return { product_id: pid, quantity: item.quantity };
+        }),
         source: "mobile",
-        address_id: isNaN(parseInt(payload.address_id)) ? 1 : parseInt(payload.address_id)
+        address_id: addressId
       };
 
       console.log(`[Sync] Gửi CreateOrderDto:`, JSON.stringify(apiPayload));
@@ -146,8 +149,18 @@ export const SyncService = {
         return true;
       }
 
-      // Giả lập upload Multipart Form Data
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const formData = new FormData();
+      formData.append('file', {
+        uri: post.media_url,
+        type: post.media_url.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg',
+        name: post.media_url.split('/').pop() || 'media_file'
+      } as any);
+      formData.append('post_id', postId);
+
+      // Upload Multipart Form Data thực tế
+      await apiCall('POST', '/api/upload_media', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
 
       // 1. Cập nhật trạng thái thông qua PostRepository
       PostRepository.markPostSynced(postId);
@@ -170,7 +183,10 @@ export const SyncService = {
     
     const isBackendAlive = useNetworkStore.getState().isBackendAlive;
     if (isBackendAlive) {
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await apiCall('POST', '/api/appeals', {
+        appeal_id: appealId,
+        ...payload
+      });
     }
     
     // Cập nhật trạng thái Appeals thông qua PostRepository
@@ -192,12 +208,17 @@ export const SyncService = {
         return true;
       }
 
+      const toId = parseInt(payload.to_id);
+      if (isNaN(toId)) throw new Error(`Invalid to_id: ${payload.to_id}`);
+      const productId = parseInt(payload.product_id);
+      if (isNaN(productId)) throw new Error(`Invalid product_id: ${payload.product_id}`);
+
       // Ánh xạ chuẩn SendMessageDto
       const apiPayload = {
-        to_id: isNaN(parseInt(payload.to_id)) ? 1 : parseInt(payload.to_id),
+        to_id: toId,
         message: payload.message || payload.content || '',
         type_message: payload.type_message || 'text',
-        product_id: isNaN(parseInt(payload.product_id)) ? 1 : parseInt(payload.product_id)
+        product_id: productId
       };
 
       // Gửi tin nhắn thực tế qua API

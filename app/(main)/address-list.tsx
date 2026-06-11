@@ -90,7 +90,6 @@ export default function AddressListScreen() {
           text="Thêm địa chỉ mới"
           onPress={() => router.push('/(main)/address-add' as any)}
           backgroundColor={UI_CONFIG.colors.primary}
-          fullWidth
         />
       </View>
     </SafeArea>

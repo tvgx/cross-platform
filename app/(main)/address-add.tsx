@@ -185,7 +185,6 @@ export default function AddressAddScreen() {
           onPress={handleSave}
           backgroundColor={UI_CONFIG.colors.primary}
           disabled={isSubmitting}
-          fullWidth
         />
       </View>
 

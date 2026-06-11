@@ -7,6 +7,8 @@ import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { useRepositories } from '../../context/RepositoryProvider';
 import { authApi } from '../../lib/api/endpoints/auth';
+import { usersApi } from '../../lib/api/endpoints/users';
+import { balanceApi } from '../../lib/api/endpoints/misc';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 
@@ -61,6 +63,31 @@ export function LoginView() {
         userRepository.createWallet(user.id, user.virtual_balance || 0);
 
         setAuth(user, tokens);
+
+        // Fetch extra user info and balance
+        try {
+          console.log('[Auth] Fetching extra user info and wallet balance...');
+          const [userInfoRes, balanceRes, historyRes] = await Promise.all([
+            usersApi.getUserInfo(user.id),
+            balanceApi.getCurrent(),
+            balanceApi.getHistory({ page: 1, limit: 1 })
+          ]);
+
+          if (userInfoRes?.data) {
+            useAuthStore.getState().updateUser(userInfoRes.data as any);
+          }
+          if (balanceRes?.data?.balance !== undefined) {
+            useAuthStore.getState().setBalance(balanceRes.data.balance);
+            useAuthStore.getState().updateUser({ virtual_balance: balanceRes.data.balance });
+          }
+          // Extract total spent if possible, else default to 0
+          if (historyRes?.data?.total !== undefined) {
+            useAuthStore.getState().setTotalSpent(historyRes.data.total);
+          }
+        } catch (err) {
+          console.log('[Auth] Non-fatal error fetching extra info:', err);
+        }
+
         setLoading(false);
 
         // Chuyển hướng theo cấp bậc/vai trò

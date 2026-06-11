@@ -15,7 +15,7 @@ if (Platform.OS !== 'web') {
       const sqliteQueueSize = SyncQueueRepository.getPendingTasks(1).length;
 
       if (queueSize === 0 && sqliteQueueSize === 0) {
-        return BackgroundTask.BackgroundTaskResult.NoData;
+        return BackgroundTask.BackgroundTaskResult.Success;
       }
 
       // Process the Zustand queue
@@ -25,7 +25,7 @@ if (Platform.OS !== 'web') {
       const { SyncService } = require('../../services/SyncService');
       await SyncService.runSyncProcess();
       
-      return BackgroundTask.BackgroundTaskResult.NewData;
+      return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {
       console.error('Background sync failed:', error);
       return BackgroundTask.BackgroundTaskResult.Failed;
@@ -45,8 +45,6 @@ export async function registerBackgroundSyncAsync() {
   try {
     await BackgroundTask.registerTaskAsync(BACKGROUND_SYNC_TASK, {
       minimumInterval: 15 * 60, // 15 minutes
-      stopOnTerminate: false,   // android only
-      startOnBoot: true,        // android only
     });
     console.log('Background sync task registered successfully');
   } catch (err) {

@@ -21,7 +21,7 @@ export function ProfileView() {
   const { userRepository, postRepository } = useRepositories();
 
   const [orderCount, setOrderCount] = useState(0);
-  const [balance, setBalance] = useState(user?.virtual_balance || 0);
+  const balance = useAuthStore(state => state.balance);
 
   useEffect(() => {
     if (user?.id) {
@@ -32,13 +32,6 @@ export function ProfileView() {
   const loadUserData = async () => {
     if (!user?.id) return;
     try {
-      // Sync latest balance from backend
-      const balanceRes = await balanceApi.getCurrent();
-      if (balanceRes.data && typeof balanceRes.data.balance === 'number') {
-        setBalance(balanceRes.data.balance);
-        updateUser({ virtual_balance: balanceRes.data.balance });
-      }
-
       // Load orders to get count from backend
       const ordersRes = await ordersApi.getPurchases({ index: 0, count: 1 });
       if (ordersRes.data?.total !== undefined) {

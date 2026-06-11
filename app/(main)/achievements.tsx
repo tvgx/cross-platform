@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
-import { SafeArea } from '../../../components/layout/SafeArea';
-import { Header } from '../../../components/navigation/Header';
-import { UI_CONFIG } from '../../../constants/config';
-import { useRepositories } from '../../../context/RepositoryProvider';
-import { useAuthStore } from '../../../store/auth';
-import { StatusBadge } from '../../../components/ui/StatusBadge';
-import { TacticalButton } from '../../../components/ui/TacticalButton';
+import { SafeArea } from '../../components/layout/SafeArea';
+import { Header } from '../../components/navigation/Header';
+import { UI_CONFIG } from '../../constants/config';
+import { useRepositories } from '../../context/RepositoryProvider';
+import { useAuthStore } from '../../store/auth';
+import { StatusBadge } from '../../components/ui/StatusBadge';
+import { TacticalButton } from '../../components/ui/TacticalButton';
 import { useRouter } from 'expo-router';
 
 export default function AchievementsScreen() {
@@ -81,7 +81,6 @@ export default function AchievementsScreen() {
         data={achievements}
         renderItem={renderItem}
         keyExtractor={item => item.id}
-        estimatedItemSize={120}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>

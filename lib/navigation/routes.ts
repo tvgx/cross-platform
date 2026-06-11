@@ -26,6 +26,7 @@ export const ROUTES = {
   ORDERS: '/(main)/orders' as any,
   LIKED_PRODUCTS: '/(main)/liked' as any,
   PROFILE_INFO: '/(main)/personal-info' as any,
+  EDIT_PERSONAL_INFO: '/(main)/edit-personal-info' as any,
   CHANGE_PASSWORD: '/(main)/change-password' as any,
   SETTINGS: '/(main)/settings' as any,
   NOTIFICATIONS: '/(main)/notifications' as any,

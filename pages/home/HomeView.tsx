@@ -78,10 +78,9 @@ export function HomeView() {
         <CustomAppBar title="TiếpTế" showSearch={true} onSearch={handleSearch} />
         <FlashList
           data={displayedProducts}
-          keyExtractor={(item, index) => `${item.id}-${index}`}
+          keyExtractor={(item) => String(item.id)}
           renderItem={renderProduct}
           numColumns={Platform.OS === 'web' ? 4 : 2}
-          estimatedItemSize={250}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.container, { paddingHorizontal: 4 }]}
           onEndReached={handleLoadMore}
@@ -100,7 +99,7 @@ export function HomeView() {
               {/* Hero Banner */}
               <View style={[styles.heroContainer, { backgroundColor: currentColors.surface }]}>
                 <Image 
-                  source={{ uri: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=800' }} 
+                  source={require('../../assets/images/placeholder_survival.png')} 
                   style={styles.heroImage} 
                 />
                 <View style={[styles.heroOverlay, { backgroundColor: 'rgba(218, 37, 29, 0.4)' }]}>

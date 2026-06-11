@@ -46,7 +46,8 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     console.error(`[API REQUEST ERROR]`, error);
-    return Promise.reject(error);
+    const sanitizedError = new Error(error.message);
+    return Promise.reject(sanitizedError);
   },
 );
 
@@ -89,7 +90,15 @@ apiClient.interceptors.response.use(
     } else {
       console.error(`[API RESPONSE ERROR] Status: ${error.response?.status}, Data:`, error.response?.data);
     }
-    return Promise.reject(error);
+    const sanitizedError = new Error(error.message);
+    (sanitizedError as any).code = error.code;
+    if (error.response) {
+      (sanitizedError as any).response = {
+        status: error.response.status,
+        data: error.response.data,
+      };
+    }
+    return Promise.reject(sanitizedError);
   },
 );
 

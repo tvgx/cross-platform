@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Alert, ScrollView } from 'react-native';
-import { SafeArea } from '../../../components/layout/SafeArea';
-import { Header } from '../../../components/navigation/Header';
-import { UI_CONFIG } from '../../../constants/config';
-import { TacticalButton } from '../../../components/ui/TacticalButton';
-import { Input } from '../../../components/ui/Input';
+import { SafeArea } from '../../components/layout/SafeArea';
+import { Header } from '../../components/navigation/Header';
+import { UI_CONFIG } from '../../constants/config';
+import { TacticalButton } from '../../components/ui/TacticalButton';
+import { Input } from '../../components/ui/Input';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useRepositories } from '../../../context/RepositoryProvider';
-import { useAuthStore } from '../../../store/auth';
+import { useRepositories } from '../../context/RepositoryProvider';
+import { useAuthStore } from '../../store/auth';
 
 export default function AppealFormScreen() {
   const router = useRouter();

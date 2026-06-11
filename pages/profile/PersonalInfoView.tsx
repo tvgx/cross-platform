@@ -1,85 +1,57 @@
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TextInput, View, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { Header } from '../../components/navigation/Header';
-import { Button } from '../../components/ui/Button';
 import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
-import { usersApi } from '../../lib/api/endpoints/users';
-import * as ImagePicker from 'expo-image-picker';
-import { Ionicons } from '@expo/vector-icons';
+import { userApi } from '../../lib/api/endpoints/user';
+import { NavigationService } from '../../lib/navigation/NavigationService';
+import { ROUTES } from '../../lib/navigation/routes';
 
 export function PersonalInfoView() {
-  const { user, updateUser } = useAuthStore();
-  const [firstName, setFirstName] = useState(user?.firstname || '');
-  const [lastName, setLastName] = useState(user?.lastname || '');
-  const [email, setEmail] = useState(user?.email || '');
-  const [address, setAddress] = useState(user?.address || '');
-  const [status, setStatus] = useState((user as any)?.status || '');
-  const [avatarUri, setAvatarUri] = useState(user?.avatar || 'https://i.pravatar.cc/150');
-  const [coverUri, setCoverUri] = useState((user as any)?.cover_image || 'https://via.placeholder.com/800x400');
-  const [isSaving, setIsSaving] = useState(false);
+  const { user } = useAuthStore();
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
 
-  const handleSelectImage = async (type: 'avatar' | 'cover') => {
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      quality: 0.8,
-    });
+  useEffect(() => {
+    loadAddresses();
+  }, []);
 
-    if (!result.canceled && result.assets[0].uri) {
-      const uri = result.assets[0].uri;
-      if (type === 'avatar') {
-        setAvatarUri(uri);
-      } else {
-        setCoverUri(uri);
-      }
-    }
-  };
-
-  const handleSave = async () => {
-    setIsSaving(true);
+  const loadAddresses = async () => {
     try {
-      // 1. Update user info
-      const payload: any = {
-        email,
-        username: user?.username || '',
-        address,
-        firstname: firstName,
-        lastname: lastName,
-        status,
-      };
-      
-      // Update avatar & cover_image if selected
-      if (avatarUri && !avatarUri.includes('pravatar')) payload.avatar = avatarUri;
-      if (coverUri && !coverUri.includes('placeholder')) {
-        payload.cover_image = coverUri;
-        payload.cover_image_web = coverUri;
+      setIsLoadingAddresses(true);
+      const res = await userApi.getMyAddresses();
+      if (res.data) {
+        setAddresses(res.data);
       }
-
-      await usersApi.setUserInfo(payload);
-
-      alert('Cập nhật thông tin thành công!');
     } catch (err) {
-      console.error('Error saving info:', err);
-      alert('Đã xảy ra lỗi khi lưu thông tin. Vui lòng thử lại.');
+      console.error('Error fetching addresses:', err);
     } finally {
-      setIsSaving(false);
+      setIsLoadingAddresses(false);
     }
   };
+
+  const coverUri = (user as any)?.cover_image || 'https://via.placeholder.com/800x400';
+  const avatarUri = user?.avatar || 'https://i.pravatar.cc/150';
+
+  const defaultAddressStr = addresses.length > 0 
+    ? (addresses.find(a => a.is_default)?.full_address || addresses[0].full_address || addresses[0].address)
+    : (user?.address || 'Chưa cập nhật địa chỉ');
 
   return (
     <SafeArea edges={['top']}>
-      <Header title="THÔNG TIN CÁ NHÂN" leftIcon="arrow-back" showNotification={false} />
+      <Header 
+        title="THÔNG TIN CÁ NHÂN" 
+        leftIcon="arrow-back" 
+        showNotification={false} 
+        rightIcon="pencil"
+        onPressRight={() => NavigationService.navigate(ROUTES.EDIT_PERSONAL_INFO)}
+      />
       <ScrollView contentContainerStyle={styles.container}>
         
         {/* Cover Image */}
         <View style={styles.coverContainer}>
           <Image source={{ uri: coverUri }} style={styles.coverImage} />
-          <TouchableOpacity style={styles.editCoverBtn} onPress={() => handleSelectImage('cover')}>
-            <Ionicons name="camera" size={16} color="#fff" />
-            <Text style={styles.editCoverText}>Đổi ảnh nền</Text>
-          </TouchableOpacity>
           
           {/* Avatar floating over cover */}
           <View style={styles.avatarWrapper}>
@@ -87,96 +59,65 @@ export function PersonalInfoView() {
               source={{ uri: avatarUri }}
               style={styles.avatar}
             />
-            <TouchableOpacity style={styles.changeAvatarBtn} onPress={() => handleSelectImage('avatar')}>
-               <Ionicons name="camera" size={16} color="#fff" />
-            </TouchableOpacity>
           </View>
         </View>
 
         {/* Adjust spacing since avatar overlaps */}
         <View style={{ marginTop: 60 }} />
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Họ</Text>
-          <TextInput
-            style={styles.input}
-            value={lastName}
-            onChangeText={setLastName}
-            placeholder="Nhập họ"
-          />
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Họ và Tên</Text>
+            <Text style={styles.value}>
+              {(user?.lastname || '') + ' ' + (user?.firstname || '') || 'Chưa cập nhật'}
+            </Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Số điện thoại</Text>
+            <Text style={styles.value}>{user?.username || 'Chưa cập nhật'}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Email</Text>
+            <Text style={styles.value}>{user?.email || 'Chưa cập nhật'}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Trạng thái / Tiểu sử</Text>
+            <Text style={styles.value}>{(user as any)?.status || 'Chưa cập nhật'}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Cấp bậc</Text>
+            <Text style={styles.value}>{user?.rank || 'Chưa cập nhật'}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>Đơn vị</Text>
+            <Text style={styles.value}>{user?.unit || 'Chưa cập nhật'}</Text>
+          </View>
         </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Tên</Text>
-          <TextInput
-            style={styles.input}
-            value={firstName}
-            onChangeText={setFirstName}
-            placeholder="Nhập tên"
-          />
+        <Text style={styles.sectionTitle}>Địa chỉ giao hàng mặc định</Text>
+        <View style={styles.infoCard}>
+          {isLoadingAddresses ? (
+            <ActivityIndicator size="small" color={UI_CONFIG.colors.primary} />
+          ) : (
+            <Text style={styles.addressValue}>{defaultAddressStr}</Text>
+          )}
         </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Số điện thoại</Text>
-          <TextInput
-            style={[styles.input, styles.disabledInput]}
-            value={user?.username || ''}
-            editable={false}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Trạng thái / Tiểu sử</Text>
-          <TextInput
-            style={styles.input}
-            value={status}
-            onChangeText={setStatus}
-            placeholder="Nhập trạng thái của bạn"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            placeholder="Nhập địa chỉ email"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Địa chỉ</Text>
-          <TextInput
-            style={styles.input}
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Nhập địa chỉ chi tiết"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Cấp bậc</Text>
-          <TextInput
-            style={[styles.input, styles.disabledInput]}
-            value={user?.rank || 'Chưa cập nhật'}
-            editable={false}
-          />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Đơn vị</Text>
-          <TextInput
-            style={[styles.input, styles.disabledInput]}
-            value={user?.unit || 'Chưa cập nhật'}
-            editable={false}
-          />
-        </View>
-
-        <View style={styles.buttonContainer}>
-          <Button text={isSaving ? "Đang lưu..." : "Lưu thay đổi"} onPress={handleSave} disabled={isSaving} />
-        </View>
       </ScrollView>
     </SafeArea>
   );
@@ -198,28 +139,11 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 12,
   },
-  editCoverBtn: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  editCoverText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
   avatarWrapper: {
     position: 'absolute',
     bottom: -50,
     left: '50%',
-    transform: [{ translateX: -60 }], // half of width (100 + 10px padding * 2) = 120 -> 60
+    transform: [{ translateX: -60 }],
     width: 120,
     height: 120,
     borderRadius: 60,
@@ -237,41 +161,47 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
   },
-  changeAvatarBtn: {
-    position: 'absolute',
-    bottom: 5,
-    right: 5,
-    backgroundColor: UI_CONFIG.colors.primary,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: UI_CONFIG.colors.background,
-  },
-  formGroup: {
+  infoCard: {
+    backgroundColor: UI_CONFIG.colors.surface,
+    borderRadius: 12,
+    padding: UI_CONFIG.spacing.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     marginBottom: UI_CONFIG.spacing.lg,
+  },
+  infoRow: {
+    flexDirection: 'column',
+    paddingVertical: 8,
   },
   label: {
     fontSize: UI_CONFIG.typography.sizes.sm,
-    fontWeight: UI_CONFIG.typography.weights.medium,
     color: UI_CONFIG.colors.textSecondary,
-    marginBottom: UI_CONFIG.spacing.xs,
+    marginBottom: 4,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: UI_CONFIG.colors.border,
-    borderRadius: UI_CONFIG.borderRadius.md,
-    padding: UI_CONFIG.spacing.md,
+  value: {
     fontSize: UI_CONFIG.typography.sizes.md,
     color: UI_CONFIG.colors.text,
+    fontWeight: '500',
   },
-  disabledInput: {
-    backgroundColor: UI_CONFIG.colors.surfaceLighter,
+  addressValue: {
+    fontSize: UI_CONFIG.typography.sizes.md,
+    color: UI_CONFIG.colors.text,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: UI_CONFIG.colors.border,
+    marginVertical: 4,
+  },
+  sectionTitle: {
+    fontSize: UI_CONFIG.typography.sizes.md,
+    fontWeight: 'bold',
     color: UI_CONFIG.colors.textSecondary,
-  },
-  buttonContainer: {
-    marginTop: UI_CONFIG.spacing.xl,
+    marginBottom: 8,
+    marginLeft: 4,
   }
 });

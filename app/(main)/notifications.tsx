@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, FlatList } from 'react-native';
-import { SafeArea } from '../../../components/layout/SafeArea';
-import { Header } from '../../../components/navigation/Header';
-import { UI_CONFIG } from '../../../constants/config';
+import { SafeArea } from '../../components/layout/SafeArea';
+import { Header } from '../../components/navigation/Header';
+import { UI_CONFIG } from '../../constants/config';
 
 export default function NotificationsScreen() {
   return (
