@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
 import { StateStorage } from 'zustand/middleware';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
 let storageInstance: any;
 
@@ -17,15 +18,21 @@ if (Platform.OS === 'web') {
   };
 } else {
   let mmkvSuccessfullyLoaded = false;
-  try {
-    const { createMMKV } = require('react-native-mmkv');
-    // Attempt a test operation to verify JSI/NitroModules are available
-    const testStorage = createMMKV({ id: 'militart-store-test' });
-    testStorage.set('__test_key__', '1');
-    testStorage.delete('__test_key__');
-    mmkvSuccessfullyLoaded = true;
-  } catch (e) {
-    console.warn('[MMKV Fallback]: MMKV/NitroModules is not supported in this environment (e.g. Expo Go). Falling back to SQLite KeyValueStore.');
+  
+  // Bỏ qua MMKV hoàn toàn nếu đang ở trong Expo Go để tránh warning và lỗi NativeModules
+  if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+    try {
+      const { createMMKV } = require('react-native-mmkv');
+      // Attempt a test operation to verify JSI/NitroModules are available
+      const testStorage = createMMKV({ id: 'militart-store-test' });
+      testStorage.set('__test_key__', '1');
+      testStorage.delete('__test_key__');
+      mmkvSuccessfullyLoaded = true;
+    } catch (e) {
+      console.warn('[MMKV Fallback]: MMKV/NitroModules is not supported in this environment. Falling back to SQLite KeyValueStore.');
+    }
+  } else {
+    console.log('[MMKV Fallback]: Running in Expo Go, safely using SQLite KeyValueStore instead of MMKV.');
   }
 
   if (mmkvSuccessfullyLoaded) {

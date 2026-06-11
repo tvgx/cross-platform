@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useCatalogStore } from '../../store/catalog';
 import { useAuthStore } from '../../store/auth';
 import { useAppStore } from '../../store/app';
+import { useProductStore } from '../../store/product';
 import * as Haptics from 'expo-haptics';
 
 interface ProductCardProps {
@@ -18,8 +19,9 @@ interface ProductCardProps {
   style?: any;
 }
 
-export const ProductCard = ({ item, style }: ProductCardProps) => {
+export const ProductCard = React.memo(({ item, style }: ProductCardProps) => {
   const toggleLike = useCatalogStore(state => state.toggleLike);
+  const toggleLikeLocally = useProductStore(state => state.toggleLikeLocally);
   const userId = useAuthStore(state => state.user?.id) || 'guest';
   const isDarkMode = useAppStore(state => state.isDarkMode);
   const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
@@ -27,12 +29,13 @@ export const ProductCard = ({ item, style }: ProductCardProps) => {
   const handleLike = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleLike(item.id, userId);
+    toggleLikeLocally(item.id);
   };
 
   return (
     <TouchableOpacity 
       style={[styles.productCard, { backgroundColor: currentColors.surface }, style]}
-      onPress={() => NavigationService.navigate(ROUTES.DETAIL(item.id))}
+      onPress={() => NavigationService.navigate(ROUTES.DETAIL(String(item.id)))}
       activeOpacity={0.9}
     >
       <View style={styles.imageContainer}>
@@ -54,7 +57,11 @@ export const ProductCard = ({ item, style }: ProductCardProps) => {
       </View>
     </TouchableOpacity>
   );
-};
+}, (prevProps, nextProps) => {
+  return prevProps.item.id === nextProps.item.id && 
+         prevProps.item.is_liked === nextProps.item.is_liked &&
+         prevProps.item.like_count === nextProps.item.like_count;
+});
 
 const styles = StyleSheet.create({
   productCard: {

@@ -9,6 +9,8 @@ export interface User {
   id: string;
   username: string;
   full_name: string;
+  firstname?: string;
+  lastname?: string;
   avatar?: string;
   rank?: string;           // military rank
   unit?: string;
@@ -154,11 +156,16 @@ export interface UserProfile {
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
 export interface OrderAddress {
-  id: string;
-  full_name: string;
+  id: number;
+  receiver_name: string;
   phone: string;
   address: string;
+  full_address: string;
+  address_detail: string;
+  lat: number;
+  lng: number;
   is_default: boolean;
+  address_id?: number[];
 }
 
 export interface OrderItem {
@@ -171,6 +178,7 @@ export interface OrderItem {
 
 export type OrderStatus =
   | 'pending'
+  | 'pending_sync'
   | 'confirmed'
   | 'shipped'
   | 'delivered'

@@ -18,6 +18,7 @@ interface ProductState {
   loadNextPage: () => Promise<void>;
   fetchBackgroundNextPage: () => Promise<void>;
   addInterest: (categoryId: number) => void;
+  toggleLikeLocally: (productId: string) => void;
 }
 
 // Helper to shuffle an array
@@ -48,6 +49,35 @@ export const useProductStore = create<ProductState>()(
           history.unshift(categoryId);
           return { userInterestHistory: history.slice(0, 20) };
         });
+      },
+
+      toggleLikeLocally: (productId: string) => {
+        set((state) => {
+          const updateProductList = (list: ProductListItem[]) => 
+            list.map(p => {
+              if (String(p.id) === String(productId)) {
+                const newLiked = !p.is_liked;
+                const newLikeCount = newLiked ? (p.like_count || 0) + 1 : Math.max(0, (p.like_count || 0) - 1);
+                return { ...p, is_liked: newLiked, like_count: newLikeCount };
+              }
+              return p;
+            });
+            
+          return {
+            displayedProducts: updateProductList(state.displayedProducts),
+            localProductCache: updateProductList(state.localProductCache),
+          };
+        });
+
+        setTimeout(async () => {
+          try {
+            const { socialApi } = require('../lib/api/endpoints/social');
+            await socialApi.likeProduct(productId);
+          } catch (err) {
+            console.warn('[ProductStore] Lỗi gọi API likeProduct', err);
+            // Revert state logic could be added here
+          }
+        }, 0);
       },
 
       fetchInitialData: async () => {

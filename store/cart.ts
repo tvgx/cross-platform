@@ -8,13 +8,18 @@ function genId(): string {
 
 interface CartState {
   items: CartItem[];
+  selectedIds: string[];
   // Actions
   addItem: (item: Omit<CartItem, 'id'>) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
+  toggleSelection: (id: string) => void;
+  selectAll: (select: boolean) => void;
   clear: () => void;
+  clearSelected: () => void;
   // Selectors
   total: () => number;
+  selectedTotal: () => number;
   itemCount: () => number;
 }
 
@@ -22,6 +27,7 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      selectedIds: [],
 
       addItem: (item) =>
         set((state) => {
@@ -37,24 +43,61 @@ export const useCartStore = create<CartState>()(
               ),
             };
           }
-          return { items: [...state.items, { ...item, id: genId() }] };
+          const newId = genId();
+          return { 
+            items: [...state.items, { ...item, id: newId }],
+            selectedIds: [...state.selectedIds, newId] // Tự động chọn khi thêm mới
+          };
         }),
 
       removeItem: (id) =>
-        set((state) => ({ items: state.items.filter((i) => i.id !== id) })),
-
-      updateQuantity: (id, quantity) =>
-        set((state) => ({
-          items:
-            quantity <= 0
-              ? state.items.filter((i) => i.id !== id)
-              : state.items.map((i) => (i.id === id ? { ...i, quantity } : i)),
+        set((state) => ({ 
+          items: state.items.filter((i) => i.id !== id),
+          selectedIds: state.selectedIds.filter((selId) => selId !== id)
         })),
 
-      clear: () => set({ items: [] }),
+      updateQuantity: (id, quantity) =>
+        set((state) => {
+          if (quantity <= 0) {
+            return {
+              items: state.items.filter((i) => i.id !== id),
+              selectedIds: state.selectedIds.filter((selId) => selId !== id)
+            };
+          }
+          return {
+            items: state.items.map((i) => (i.id === id ? { ...i, quantity } : i))
+          };
+        }),
+
+      toggleSelection: (id) =>
+        set((state) => ({
+          selectedIds: state.selectedIds.includes(id)
+            ? state.selectedIds.filter(selId => selId !== id)
+            : [...state.selectedIds, id]
+        })),
+
+      selectAll: (select) =>
+        set((state) => ({
+          selectedIds: select ? state.items.map(i => i.id) : []
+        })),
+
+      clear: () => set({ items: [], selectedIds: [] }),
+      
+      clearSelected: () =>
+        set((state) => ({
+          items: state.items.filter(i => !state.selectedIds.includes(i.id)),
+          selectedIds: []
+        })),
 
       total: () =>
         get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
+
+      selectedTotal: () => {
+        const state = get();
+        return state.items
+          .filter(i => state.selectedIds.includes(i.id))
+          .reduce((sum, i) => sum + i.price * i.quantity, 0);
+      },
 
       itemCount: () =>
         get().items.reduce((sum, i) => sum + i.quantity, 0),

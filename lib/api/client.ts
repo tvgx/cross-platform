@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { getStoredJSON, removeStored } from '../storage/mmkv';
-import type { AuthTokens } from '../../types';
 import { useNetworkStore } from '../../store/network';
+import type { AuthTokens } from '../../types';
+import { getStoredJSON, removeStored } from '../storage/mmkv';
 
 // Set EXPO_PUBLIC_API_URL in your .env file.
 const BASE_URL =
@@ -18,7 +18,7 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     let token = '';
-    
+
     // 1. Thử lấy từ auth_tokens trực tiếp
     const tokens = getStoredJSON<AuthTokens>('auth_tokens');
     if (tokens?.access_token) {
@@ -34,9 +34,20 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // --- VERBOSE LOGGING: REQUEST ---
+    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.url}`);
+    if (config.data) {
+      console.log(`[API REQUEST BODY]`, JSON.stringify(config.data, null, 2));
+    }
+    // --------------------------------
+
     return config;
   },
-  (error) => Promise.reject(error),
+  (error) => {
+    console.error(`[API REQUEST ERROR]`, error);
+    return Promise.reject(error);
+  },
 );
 
 // ─── Response interceptor: handle 401 & Network Errors ─────────────────────────
@@ -51,6 +62,16 @@ apiClient.interceptors.response.use(
       } else {
         dataObj.success = response.status >= 200 && response.status < 300;
       }
+
+      if (!dataObj.success) {
+        console.warn(`[API RESPONSE ERROR] ${response.config.method?.toUpperCase()} ${response.config.url} - Code: ${dataObj.code}, Message: ${dataObj.message}`);
+        return Promise.reject(new Error(dataObj.message || 'Lỗi từ máy chủ API'));
+      }
+
+      // --- VERBOSE LOGGING: SUCCESS RESPONSE ---
+      console.log(`[API RESPONSE SUCCESS] ${response.config.method?.toUpperCase()} ${response.config.url}`);
+      console.log(`[API RESPONSE DATA]`, JSON.stringify(dataObj, null, 2).substring(0, 500) + (JSON.stringify(dataObj).length > 500 ? '... (truncated)' : ''));
+      // -----------------------------------------
     }
     return response;
   },
@@ -60,9 +81,13 @@ apiClient.interceptors.response.use(
       // and triggers a logout on next render.
       removeStored('auth_tokens');
       removeStored('auth-storage');  // zustand persist key
+      console.error(`[API RESPONSE 401] Token expired or unauthorized.`);
     } else if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) {
       // If it's a network error or timeout, we might want to flag the backend as dead
       useNetworkStore.getState().setBackendAlive(false);
+      console.error(`[API NETWORK ERROR] Backend marked as dead. Code: ${error.code}`);
+    } else {
+      console.error(`[API RESPONSE ERROR] Status: ${error.response?.status}, Data:`, error.response?.data);
     }
     return Promise.reject(error);
   },
@@ -77,12 +102,12 @@ export async function apiCall<T>(
   params?: Record<string, unknown>,
 ): Promise<T> {
   const networkStore = useNetworkStore.getState();
-  
+
   if (!networkStore.isBackendAlive) {
     console.log(`[API Client] Backend is marked as dead (Offline Mode). Pinging health check in background...`);
     // Ping background to recover if backend is back up
     networkStore.checkBackendHealth();
-    
+
     // Throw error so caller falls back to Local immediately
     return Promise.reject(new Error('Local Mode Only'));
   }

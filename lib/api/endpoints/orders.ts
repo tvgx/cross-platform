@@ -18,6 +18,12 @@ export const ordersApi = {
     apiCall<ApiResponse<ShipFee>>('POST', '/order/get_ship_fee', params),
 
   // Order addresses
+  getProvinces: () =>
+    apiCall<ApiResponse<any[]>>('GET', '/order/provinces'),
+
+  getWards: (provinceId: number) =>
+    apiCall<ApiResponse<any[]>>('GET', `/order/wards`, undefined, { province_id: provinceId }),
+
   getOrderAddresses: () =>
     apiCall<ApiResponse<OrderAddress[]>>('GET', '/order/get_list_order_address'),
 
@@ -40,7 +46,7 @@ export const ordersApi = {
     address_id: number;
   }) => apiCall<ApiResponse<Order>>('POST', '/order/create_order', body),
 
-  getPurchases: (params?: { index: string; count: string; state?: string }) =>
+  getPurchases: (params?: { index: string | number; count: string | number; state?: string }) =>
     apiCall<ApiResponse<PaginatedResponse<Order>>>('POST', '/order/get_list_purchases', params),
 
   getPurchase: (orderId: string) =>
@@ -49,14 +55,14 @@ export const ordersApi = {
   editPurchase: (orderId: string, body: Partial<Order>) =>
     apiCall<ApiResponse<Order>>('POST', '/order/edit_purchase', { id: orderId, ...body }),
 
-  cancelOrder: (orderId: string, reason?: number) =>
+  cancelOrder: (orderId: string, reason: string) =>
     apiCall<ApiResponse<null>>('POST', '/order/cancel_order', { id: orderId, reason }),
 
   sellerMarkShipped: (orderId: string, buyerId: string) =>
     apiCall<ApiResponse<null>>('POST', '/order/seller_mark_as_shipped', { purchase_id: orderId, buyer_id: buyerId }),
 
-  buyerConfirmReceived: (orderId: string) =>
-    apiCall<ApiResponse<null>>('POST', '/order/buyer_confirm_received', { purchase_id: orderId }),
+  buyerConfirmReceived: (orderId: string, state?: string) =>
+    apiCall<ApiResponse<null>>('POST', '/order/buyer_confirm_received', { purchase_id: orderId, state }),
 
   getOrderTimeline: (orderId: string) =>
     apiCall<ApiResponse<OrderTimeline[]>>('POST', '/order/get_order_timeline', { purchase_id: orderId }),

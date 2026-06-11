@@ -90,15 +90,15 @@ export const ProductRepository = {
       
       return rows.map(row => ({
         id: row.id,
-        name: row.name,
+        name: row.title || row.name,
         price: row.price,
         price_new: row.price_new,
-        image: row.image,
+        image: row.images || row.image,
         video: row.video,
         seller_id: row.seller_id,
         seller_name: 'Nhà cung cấp quân nhu', // Fallback tên
         rating: row.rating || 5.0,
-        like: row.like || 0,
+        like: row.like_count || row.like || 0,
         comment: row.comment || 0,
         is_liked: row.is_liked === 1,
         stock: row.stock || 0,
@@ -128,24 +128,24 @@ export const ProductRepository = {
             // Lưu vào SQLite dã chiến cục bộ
             db.runSync(
               `INSERT OR REPLACE INTO Products 
-              (id, seller_id, category_id, brand_id, name, description, price, price_new, image, video, stock, is_stock, sold_count, rating, like, comment, is_liked, created_at) 
+              (id, seller_id, category_id, brand_id, title, description, price, price_new, images, video, stock, is_stock, sold_count, rating, like_count, comment, is_liked, created_at) 
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
               [
                 String(p.id),
                 p.seller_id ? String(p.seller_id) : '1',
                 p.category_id ? String(p.category_id) : '1',
                 p.brand_id ? String(p.brand_id) : 'b1',
-                p.name || p.title || 'Không có tên',
+                p.title || p.name || 'Không có tên',
                 p.description || '',
                 Number(p.price) || 0,
                 Number(p.price_new) || 0,
-                p.image || null,
+                p.images || p.image || null,
                 p.video || null,
                 p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
                 p.is_stock ? 1 : 0,
                 p.sold_count || 0,
                 p.rating || 5.0,
-                p.like || p.like_count || 0,
+                p.like_count || p.like || 0,
                 p.comment || 0,
                 p.is_liked === true || p.is_liked === '1' ? 1 : 0,
                 p.created_at || new Date().toISOString()
@@ -175,11 +175,11 @@ export const ProductRepository = {
 
       return {
         id: row.id,
-        title: row.name || row.title,
+        title: row.title || row.name,
         description: row.description || '',
         price: row.price,
         price_new: row.price_new,
-        image: row.image,
+        images: row.images ? [row.images] : [],
         video: row.video,
         category_id: row.category_id,
         brand_id: row.brand_id,
@@ -189,7 +189,7 @@ export const ProductRepository = {
         is_stock: row.is_stock === 1,
         sold_count: row.sold_count || 0,
         rating: row.rating || 5.0,
-        like: row.like || 0,
+        like_count: row.like_count || row.like || 0,
         comment: row.comment || 0,
         is_liked: row.is_liked === 1,
         created_at: row.created_at,
@@ -248,24 +248,24 @@ export const ProductRepository = {
         items.forEach((p: any) => {
           db.runSync(
             `INSERT OR REPLACE INTO Products 
-            (id, seller_id, category_id, brand_id, name, description, price, price_new, image, video, stock, is_stock, sold_count, rating, like, comment, is_liked, created_at) 
+            (id, seller_id, category_id, brand_id, title, description, price, price_new, images, video, stock, is_stock, sold_count, rating, like_count, comment, is_liked, created_at) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               String(p.id),
               p.seller_id ? String(p.seller_id) : '1',
               p.category_id ? String(p.category_id) : '1',
               p.brand_id ? String(p.brand_id) : 'b1',
-              p.name || p.title || 'Không có tên',
+              p.title || p.name || 'Không có tên',
               p.description || '',
               Number(p.price) || 0,
               Number(p.price_new) || 0,
-              p.image || null,
+              p.images || p.image || null,
               p.video || null,
               p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
               p.is_stock ? 1 : 0,
               p.sold_count || 0,
               p.rating || 5.0,
-              p.like || p.like_count || 0,
+              p.like_count || p.like || 0,
               p.comment || 0,
               p.is_liked === true || p.is_liked === '1' ? 1 : 0,
               p.created_at || new Date().toISOString()
@@ -302,7 +302,7 @@ export const ProductRepository = {
       db.withTransactionSync(() => {
         // A. Cập nhật bảng Products
         db.runSync(
-          'UPDATE Products SET is_liked = ?, like = ? WHERE id = ?',
+          'UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?',
           [isLiked ? 1 : 0, likeCount, productId]
         );
 

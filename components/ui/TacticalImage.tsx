@@ -1,16 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Image, 
-  ImageProps, 
-  StyleSheet, 
-  View, 
-  ActivityIndicator, 
-  StyleProp, 
-  ViewStyle, 
-  ImageStyle, 
-  Animated 
-} from 'react-native';
-import { UI_CONFIG } from '../../constants/config';
+import React from 'react';
+import { StyleSheet, View, StyleProp, ViewStyle, ImageStyle } from 'react-native';
+import { Image, ImageProps } from 'expo-image';
 
 // Bản đồ ánh xạ từ Category ID/Tên sang ảnh Placeholder cục bộ dạng phẳng tối giản (Pre-loaded)
 const PLACEHOLDER_MAP: Record<string, any> = {
@@ -65,7 +55,8 @@ export interface TacticalImageProps extends Omit<ImageProps, 'source'> {
   categoryId?: string;
   style?: StyleProp<ImageStyle>;
   containerStyle?: StyleProp<ViewStyle>;
-  timeoutMs?: number; // Mặc định 5000ms (5 giây)
+  timeoutMs?: number; 
+  resizeMode?: 'cover' | 'contain' | 'stretch' | 'center';
 }
 
 export const TacticalImage = ({
@@ -73,94 +64,32 @@ export const TacticalImage = ({
   categoryId,
   style,
   containerStyle,
-  timeoutMs = 5000,
+  timeoutMs, // Ignored, kept for compatibility
   resizeMode = 'cover',
   ...props
 }: TacticalImageProps) => {
-  const [isLoading, setIsLoading] = useState(!!uri);
-  const [hasError, setHasError] = useState(false);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const timeoutRef = useRef<any>(null);
-
   const placeholderSource = getPlaceholderImage(categoryId);
 
-  // Xử lý Timeout nếu ảnh tải quá lâu (môi trường mạng dã chiến yếu)
-  useEffect(() => {
-    if (isLoading && uri) {
-      timeoutRef.current = setTimeout(() => {
-        console.warn(`[TacticalImage] Timeout khi tải ảnh: ${uri}`);
-        setHasError(true);
-        setIsLoading(false);
-      }, timeoutMs);
-    }
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [isLoading, uri, timeoutMs]);
-
-  const handleLoadStart = () => {
-    setIsLoading(true);
-    setHasError(false);
+  // Map react-native resizeMode to expo-image contentFit
+  const contentFitMap: Record<string, 'cover' | 'contain' | 'fill' | 'none'> = {
+    'cover': 'cover',
+    'contain': 'contain',
+    'stretch': 'fill',
+    'center': 'none'
   };
 
-  const handleLoad = () => {
-    setIsLoading(false);
-    setHasError(false);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    // Fade in ảnh chính cực mượt khi tải xong
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 350,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handleLoadError = () => {
-    console.warn(`[TacticalImage] Lỗi tải ảnh: ${uri}`);
-    setHasError(true);
-    setIsLoading(false);
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-  };
+  const contentFit = contentFitMap[resizeMode] || 'cover';
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {/* 1. Ảnh Placeholder cục bộ làm nền (Luôn hiển thị khi đang load hoặc có lỗi) */}
       <Image 
-        source={placeholderSource} 
-        style={[styles.image, style]} 
-        resizeMode={resizeMode}
+        source={uri ? { uri } : placeholderSource}
+        placeholder={placeholderSource}
+        style={[styles.image, style]}
+        contentFit={contentFit}
+        transition={350}
+        {...props as any}
       />
-
-      {/* 2. Ảnh thực tế từ Network/URI (Nếu có và không có lỗi) */}
-      {uri && !hasError && (
-        <Animated.Image
-          source={{ uri }}
-          style={[
-            styles.absoluteImage, 
-            style, 
-            { opacity: fadeAnim }
-          ]}
-          resizeMode={resizeMode}
-          onLoadStart={handleLoadStart}
-          onLoad={handleLoad}
-          onError={handleLoadError}
-          {...props}
-        />
-      )}
-
-      {/* 3. Spinner xoay mờ tác chiến nhỏ ở góc khi đang loading */}
-      {isLoading && (
-        <View style={styles.loaderContainer}>
-          <ActivityIndicator size="small" color={UI_CONFIG.colors.primary} />
-        </View>
-      )}
     </View>
   );
 };
@@ -174,24 +103,5 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-  },
-  absoluteImage: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: '100%',
-    height: '100%',
-  },
-  loaderContainer: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    borderRadius: 999,
-    padding: 4,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
 });

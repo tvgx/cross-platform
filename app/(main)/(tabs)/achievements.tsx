@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Image } from 'expo-image';
+import { FlashList } from '@shopify/flash-list';
 import { SafeArea } from '../../../components/layout/SafeArea';
 import { Header } from '../../../components/navigation/Header';
 import { UI_CONFIG } from '../../../constants/config';
@@ -75,10 +77,11 @@ export default function AchievementsScreen() {
   return (
     <SafeArea edges={['top']}>
       <Header title="LỊCH SỬ CHIẾN TÍCH" leftIcon="arrow-back" onPressLeft={() => router.back()} />
-      <FlatList
+      <FlashList
         data={achievements}
         renderItem={renderItem}
         keyExtractor={item => item.id}
+        estimatedItemSize={120}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
           <View style={styles.empty}>

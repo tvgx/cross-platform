@@ -1,117 +1,44 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, Image, Animated } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeArea } from '../../../components/layout/SafeArea';
 import { CustomAppBar } from '../../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../../constants/config';
 import { useNavigation, useRouter } from 'expo-router';
-import { DrawerActions } from '@react-navigation/native';
 import { useCartStore } from '../../../store/cart';
+import { useCheckoutStore } from '../../../store/checkout';
 import { TacticalButton } from '../../../components/ui/TacticalButton';
 import { useAuthStore } from '../../../store/auth';
-import { useRepositories } from '../../../context/RepositoryProvider';
 import { TacticalImage } from '../../../components/ui/TacticalImage';
 import { SwipeWrapper } from '../../../components/navigation/SwipeWrapper';
-
+  
 export default function CartScreen() {
-  const navigation = useNavigation();
   const router = useRouter();
-  const { orderRepository, userRepository } = useRepositories();
   
   const items = useCartStore(state => state.items);
-  const total = useCartStore(state => state.total());
+  const selectedIds = useCartStore(state => state.selectedIds);
+  const selectedTotal = useCartStore(state => state.selectedTotal());
   const updateQuantity = useCartStore(state => state.updateQuantity);
-  const clearCart = useCartStore(state => state.clear);
+  const toggleSelection = useCartStore(state => state.toggleSelection);
+  const selectAll = useCartStore(state => state.selectAll);
 
+  const setCheckoutItems = useCheckoutStore(state => state.setCheckoutItems);
   const user = useAuthStore(state => state.user);
-  const updateUser = useAuthStore(state => state.updateUser);
   
-  const [balance, setBalance] = useState(user?.virtual_balance || 0);
-
-  useEffect(() => {
-    if (user?.id) {
-      try {
-        const u = userRepository.getUser(user.id);
-        if (u) {
-          setBalance(u.virtual_balance);
-          updateUser({ virtual_balance: u.virtual_balance });
-        }
-      } catch (err) {
-        console.error('Error syncing balance in Cart:', err);
-      }
-    }
-  }, [user?.id]);
-
   const handleCheckout = () => {
     if (!user) {
       Alert.alert('BỊ TỪ CHỐI', 'Vui lòng đăng nhập.');
       return;
     }
     
-    if (items.length === 0) {
-      Alert.alert('GIỎ HÀNG TRỐNG', 'Chưa chọn mặt hàng nào.');
+    if (selectedIds.length === 0) {
+      Alert.alert('CHƯA CHỌN MẶT HÀNG', 'Vui lòng chọn ít nhất một sản phẩm.');
       return;
     }
 
-    if (balance < total) {
-      Alert.alert('KHÔNG ĐỦ ĐIỂM', 'Không đủ điểm chiến tích.');
-      return;
-    }
-
-    Alert.alert(
-      'XÁC NHẬN LỆNH MUA',
-      `Bạn đang thực hiện lệnh mua với tổng giá trị ${total.toLocaleString('vi-VN')} Xu. Lệnh này sẽ được gửi tới Bộ Quốc Phòng.`,
-      [
-        { text: 'HỦY', style: 'cancel' },
-        { text: 'XÁC NHẬN (CONFIRM)', onPress: processCheckout }
-      ]
-    );
-  };
-
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const processCheckout = async () => {
-    if (!user) return;
-    setIsProcessing(true);
-    try {
-      const newBalance = balance - total;
-      const firstItem = items[0];
-      const sellerId = firstItem.seller_id;
-      const shipFee = 15; // Phí vận chuyển tác chiến cố định
-
-      const orderId = await orderRepository.checkoutOrder({
-        userId: user.id,
-        items: items.map(item => ({
-          product_id: item.product_id,
-          title: item.title,
-          price: item.price,
-          quantity: item.quantity,
-          image: item.image,
-          variant_id: item.variant_id,
-          variant_title: item.variant_title,
-          seller_id: item.seller_id
-        })),
-        total,
-        shipFee,
-        sellerId
-      });
-      
-      // Cập nhật state nội bộ ứng dụng
-      setBalance(newBalance);
-      updateUser({ virtual_balance: newBalance });
-      clearCart();
-      
-      // Chuyển hướng sang màn hình thành công
-      router.replace({
-        pathname: '/(main)/order-success' as any,
-        params: { orderId }
-      });
-      
-    } catch (err) {
-      console.error('Lỗi giao dịch đặt hàng dã chiến:', err);
-      Alert.alert('LỖI HỆ THỐNG', 'Lỗi kết nối Tổng kho. Hiển thị dự phòng cục bộ.');
-    } finally {
-      setIsProcessing(false);
-    }
+    const itemsToCheckout = items.filter(i => selectedIds.includes(i.id));
+    setCheckoutItems(itemsToCheckout);
+    router.push('/(main)/checkout' as any);
   };
 
   return (
@@ -121,51 +48,60 @@ export default function CartScreen() {
         
         {items.length === 0 ? (
           <View style={styles.center}>
-            <Text style={styles.emptyText}>KHÔNG CÓ LỆNH MUA NÀO ĐANG CHỜ</Text>
+            <Text style={styles.emptyText}>CHƯA CÓ SẢN PHẨM TRONG GIỎ HÀNG</Text>
           </View>
         ) : (
           <>
+            <View style={styles.selectAllRow}>
+              <TouchableOpacity onPress={() => selectAll(selectedIds.length !== items.length)} style={styles.checkboxContainer}>
+                <Ionicons name={selectedIds.length === items.length && items.length > 0 ? "checkbox" : "square-outline"} size={24} color={UI_CONFIG.colors.primary} />
+                <Text style={styles.selectAllText}>CHỌN TẤT CẢ</Text>
+              </TouchableOpacity>
+            </View>
+
             <ScrollView contentContainerStyle={styles.container}>
-              {items.map(item => (
-                <View key={item.id} style={styles.cartItem}>
-                  <TacticalImage uri={item.image} categoryId={item.product_id} style={styles.itemImage} />
-                  <View style={styles.itemInfo}>
-                    <View>
-                      <Text style={styles.itemTitle}>{item.title.toUpperCase()}</Text>
-                      {item.variant_title && (
-                        <Text style={styles.itemVariant}>PHÂN LOẠI: {item.variant_title.toUpperCase()}</Text>
-                      )}
-                    </View>
-                    <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} XU</Text>
-                    
-                    <View style={styles.quantityRow}>
-                      <TacticalButton variant="outline" text="-" size="sm" onPress={() => updateQuantity(item.id, item.quantity - 1)} />
-                      <Text style={styles.qtyText}>{item.quantity}</Text>
-                      <TacticalButton variant="outline" text="+" size="sm" onPress={() => updateQuantity(item.id, item.quantity + 1)} />
+              {items.map(item => {
+                const isSelected = selectedIds.includes(item.id);
+                return (
+                  <View key={item.id} style={styles.cartItemWrapper}>
+                    <TouchableOpacity onPress={() => toggleSelection(item.id)} style={styles.itemCheckbox}>
+                      <Ionicons name={isSelected ? "checkbox" : "square-outline"} size={24} color={UI_CONFIG.colors.primary} />
+                    </TouchableOpacity>
+                    <View style={styles.cartItem}>
+                      <TacticalImage uri={item.image} categoryId={item.product_id} style={styles.itemImage} />
+                      <View style={styles.itemInfo}>
+                        <View>
+                          <Text style={styles.itemTitle}>{item.title?.toUpperCase() || 'SẢN PHẨM'}</Text>
+                          {item.variant_title && (
+                            <Text style={styles.itemVariant}>PHÂN LOẠI: {item.variant_title.toUpperCase()}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.itemPrice}>{item.price.toLocaleString('vi-VN')} ₫</Text>
+                        
+                        <View style={styles.quantityRow}>
+                          <TacticalButton variant="outline" text="-" size="sm" onPress={() => updateQuantity(item.id, item.quantity - 1)} />
+                          <Text style={styles.qtyText}>{item.quantity}</Text>
+                          <TacticalButton variant="outline" text="+" size="sm" onPress={() => updateQuantity(item.id, item.quantity + 1)} />
+                        </View>
+                      </View>
                     </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </ScrollView>
 
             <View style={styles.footer}>
               <View style={styles.glassContainer}>
                 <View style={styles.balanceRow}>
-                  <Text style={styles.balanceLabel}>NGÂN SÁCH HIỆN TẠI:</Text>
-                  <Text style={styles.balanceValue}>{balance.toLocaleString('vi-VN')} XU</Text>
-                </View>
-                
-                <View style={styles.balanceRow}>
-                  <Text style={styles.balanceLabel}>TỔNG CHI PHÍ:</Text>
+                  <Text style={styles.balanceLabel}>TỔNG TIỀN (CHƯA PHÍ SHIP):</Text>
                   <Text style={[styles.balanceValue, { color: UI_CONFIG.colors.primary }]}>
-                    {total.toLocaleString('vi-VN')} XU
+                    {selectedTotal.toLocaleString('vi-VN')} ₫
                   </Text>
                 </View>
 
                 <TacticalButton 
-                  text={isProcessing ? "ĐANG XỬ LÝ..." : "XÁC NHẬN THANH TOÁN"} 
+                  text={`ĐẶT HÀNG (${selectedIds.length})`} 
                   onPress={handleCheckout} 
-                  disabled={isProcessing}
                   fullWidth
                   size="lg"
                   style={styles.checkoutBtn}
@@ -195,7 +131,29 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontWeight: '900',
   },
+  selectAllRow: {
+    paddingHorizontal: UI_CONFIG.spacing.md,
+    paddingTop: UI_CONFIG.spacing.md,
+    backgroundColor: UI_CONFIG.colors.background,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectAllText: {
+    marginLeft: 8,
+    fontWeight: '700',
+    color: UI_CONFIG.colors.text,
+  },
+  cartItemWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  itemCheckbox: {
+    marginRight: UI_CONFIG.spacing.md,
+  },
   cartItem: {
+    flex: 1,
     flexDirection: 'row',
     backgroundColor: UI_CONFIG.colors.surfaceLighter,
     padding: UI_CONFIG.spacing.sm,

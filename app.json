@@ -48,7 +48,9 @@
       ],
       "expo-sqlite",
       "expo-video",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-font",
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,

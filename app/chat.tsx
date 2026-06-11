@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeArea } from '../components/layout/SafeArea';
 import { Header } from '../components/navigation/Header';
 import { UI_CONFIG } from '../constants/config';
@@ -67,10 +68,11 @@ export default function ChatScreen() {
             <Text style={styles.emptyText}>Chưa có cuộc hội thoại nào.</Text>
           </View>
         ) : (
-          <FlatList
+          <FlashList
             data={conversations}
             keyExtractor={item => item.id}
             renderItem={renderItem}
+            estimatedItemSize={80}
             contentContainerStyle={styles.list}
           />
         )}

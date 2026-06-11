@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { UI_CONFIG } from '../constants/config';
 
 export interface CommentItem {
@@ -37,12 +37,13 @@ export const Comments = ({ comments = [], onAddComment, height }: CommentsProps)
           <Text style={styles.emptyText}>No comments yet. Be the first to comment!</Text>
         </View>
       ) : (
-        <FlatList
-          data={comments}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-        />
+        <View style={styles.listContent}>
+          {comments.map(item => (
+            <React.Fragment key={item.id}>
+              {renderItem({ item })}
+            </React.Fragment>
+          ))}
+        </View>
       )}
     </View>
   );

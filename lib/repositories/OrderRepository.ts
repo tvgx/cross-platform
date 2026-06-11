@@ -161,10 +161,46 @@ export const OrderRepository = {
     try {
       // 1. Thử gọi API trước để lấy dữ liệu mới nhất (Online-first)
       try {
-        const res = await ordersApi.getPurchases({ index: '0', count: '20' });
+        const res = await ordersApi.getPurchases({ index: 0, count: 20 });
         if (res && res.success && res.data) {
-          this.syncOrdersWithServer(res.data.items);
+          const itemsArray = Array.isArray(res.data) ? res.data : (res.data.items || []);
+          
+          // Chạy đồng bộ ngầm nhưng không block
+          this.syncOrdersWithServer(itemsArray);
           console.log('[OrderRepo] Lấy hóa đơn từ server thành công.');
+          
+          const user = useAuthStore.getState().user;
+          // Ưu tiên trả về data từ server thay vì đọc lại từ SQLite
+          return itemsArray.map((o: any) => ({
+            id: String(o.id),
+            buyer_id: user?.id || '0',
+            seller_id: o.seller_id || '1',
+            seller_name: o.seller_name || 'Nhà cung cấp quân nhu',
+            items: (o.items || []).map((i: any) => ({
+              product_id: String(i.product_id),
+              title: i.name || i.title || 'Sản phẩm quân nhu',
+              image: i.image || undefined,
+              price: i.price || 0,
+              quantity: i.quantity || 1
+            })),
+            subtotal: o.total_price || 0,
+            ship_fee: o.shipping_fee || o.ship_fee || 0,
+            total: (o.total_price || 0) + (o.shipping_fee || o.ship_fee || 0),
+            status: this.mapStatus(o.state || o.status),
+            address: {
+              id: 0,
+              receiver_name: user?.full_name || 'Người nhận',
+              phone: user?.phone || '0000000000',
+              address: o.buyer_coordinates_description || 'Căn cứ dã chiến',
+              full_address: o.buyer_coordinates_description || 'Căn cứ dã chiến',
+              address_detail: '',
+              lat: 0,
+              lng: 0,
+              is_default: true
+            },
+            created_at: o.created_at || new Date().toISOString(),
+            updated_at: o.updated_at || new Date().toISOString()
+          }));
         }
       } catch (err) {
         console.log('[OrderRepo] Không thể lấy hóa đơn từ server (Offline/Error), fallback về SQLite.');
@@ -233,10 +269,14 @@ export const OrderRepository = {
           total: order.total_price + (order.shipping_fee || 0),
           status: this.mapStatus(order.status),
           address: {
-            id: 'addr_default',
-            full_name: user.full_name,
+            id: 0,
+            receiver_name: user.full_name,
             phone: user.phone || '0000000000',
             address: order.buyer_coordinates_description || 'Căn cứ dã chiến',
+            full_address: order.buyer_coordinates_description || 'Căn cứ dã chiến',
+            address_detail: '',
+            lat: 0,
+            lng: 0,
             is_default: true
           },
           created_at: order.created_at,
@@ -254,24 +294,35 @@ export const OrderRepository = {
   /**
    * Đồng bộ hóa danh sách đơn hàng lấy từ Server vào SQLite cục bộ
    */
-  syncOrdersWithServer(serverOrders: Order[]): void {
+  syncOrdersWithServer(serverOrders: any[]): void {
+    const user = useAuthStore.getState().user;
+    if (!user || !serverOrders || !Array.isArray(serverOrders)) return;
+
     try {
       db.withTransactionSync(() => {
         serverOrders.forEach(o => {
           db.runSync(
             `INSERT OR REPLACE INTO Orders (id, buyer_id, total_price, status, sync_status, created_at) 
              VALUES (?, ?, ?, ?, ?, ?)`,
-            [o.id, o.buyer_id, o.total, o.status, 'synced', o.created_at]
+            [o.id, user.id, o.total_price || o.total, o.state || o.status, 'synced', o.created_at || new Date().toISOString()]
           );
 
-          o.items.forEach(item => {
-            const localItemId = `itm_${o.id}_${item.product_id}`;
-            db.runSync(
-              `INSERT OR REPLACE INTO OrderItems (id, order_id, product_id, price, quantity) 
-               VALUES (?, ?, ?, ?, ?)`,
-              [localItemId, o.id, item.product_id, item.price, item.quantity]
-            );
-          });
+          if (Array.isArray(o.items)) {
+            o.items.forEach((item: any) => {
+              // Chèn Product tạm thời để thoả mãn Foreign Key constraint
+              db.runSync(
+                `INSERT OR IGNORE INTO Products (id, title, price, images, created_at) VALUES (?, ?, ?, ?, ?)`,
+                [item.product_id, item.name || item.title || 'Sản phẩm', item.price || 0, JSON.stringify(item.image ? [item.image] : []), o.created_at || new Date().toISOString()]
+              );
+
+              const localItemId = `itm_${o.id}_${item.product_id}`;
+              db.runSync(
+                `INSERT OR REPLACE INTO OrderItems (id, order_id, product_id, price, quantity) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [localItemId, o.id, item.product_id, item.price, item.quantity]
+              );
+            });
+          }
         });
       });
       console.log(`[OrderRepo] Đã đồng bộ ${serverOrders.length} đơn hàng từ server về SQLite local.`);

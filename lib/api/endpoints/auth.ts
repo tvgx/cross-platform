@@ -8,6 +8,10 @@ export const authApi = {
   logout: () =>
     apiCall<ApiResponse<null>>('POST', '/auth/logout'),
 
+  getMe: () =>
+    apiCall<ApiResponse<User>>('GET', '/auth/me'),
+
+
   signup: (body: {
     phone_number: string;
     password: string;

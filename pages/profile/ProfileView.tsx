@@ -10,6 +10,8 @@ import { useRepositories } from '../../context/RepositoryProvider';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
+import { ordersApi } from '../../lib/api/endpoints/orders';
+import { balanceApi } from '../../lib/api/endpoints/misc';
 
 export function ProfileView() {
   const user = useAuthStore(state => state.user);
@@ -18,7 +20,7 @@ export function ProfileView() {
   const router = useRouter();
   const { userRepository, postRepository } = useRepositories();
 
-  const [posts, setPosts] = useState<any[]>([]);
+  const [orderCount, setOrderCount] = useState(0);
   const [balance, setBalance] = useState(user?.virtual_balance || 0);
 
   useEffect(() => {
@@ -27,19 +29,23 @@ export function ProfileView() {
     }
   }, [user?.id]);
 
-  const loadUserData = () => {
+  const loadUserData = async () => {
     if (!user?.id) return;
     try {
-      // Sync latest balance
-      const u = userRepository.getUser(user.id);
-      if (u) {
-        setBalance(u.virtual_balance);
-        updateUser({ virtual_balance: u.virtual_balance });
+      // Sync latest balance from backend
+      const balanceRes = await balanceApi.getCurrent();
+      if (balanceRes.data && typeof balanceRes.data.balance === 'number') {
+        setBalance(balanceRes.data.balance);
+        updateUser({ virtual_balance: balanceRes.data.balance });
       }
 
-      // Load user's posts (chiến tích)
-      const userPosts = postRepository.getUserPosts(user.id);
-      setPosts(userPosts);
+      // Load orders to get count from backend
+      const ordersRes = await ordersApi.getPurchases({ index: 0, count: 1 });
+      if (ordersRes.data?.total !== undefined) {
+        setOrderCount(ordersRes.data.total);
+      } else if (ordersRes.data?.items) {
+        setOrderCount(ordersRes.data.items.length);
+      }
     } catch (err) {
       console.error('Error loading user data in Profile:', err);
     }
@@ -74,28 +80,35 @@ export function ProfileView() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
         {/* Header section */}
-        <View style={styles.profileHeader}>
-          <Image 
-            source={{ uri: user?.avatar || 'https://i.pravatar.cc/150' }} 
-            style={styles.avatar} 
-          />
-          <View style={styles.userInfo}>
-            <Text style={styles.userName}>{user?.full_name || user?.username || 'Khách'}</Text>
-            <Text style={styles.userRole}>{user?.rank || 'Thành viên'}</Text>
-            {user?.unit && <Text style={styles.userUnit}>{user.unit}</Text>}
+        <View style={styles.headerContainer}>
+          <View style={styles.coverContainer}>
+            <Image 
+              source={{ uri: (user as any)?.cover_image || 'https://via.placeholder.com/800x400' }} 
+              style={styles.coverImage} 
+            />
+          </View>
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarWrapper}>
+              <Image 
+                source={{ uri: user?.avatar || 'https://i.pravatar.cc/150' }} 
+                style={styles.avatar} 
+              />
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.userName}>
+                {(user?.firstname || user?.lastname) ? `${user?.lastname || ''} ${user?.firstname || ''}`.trim() : (user?.full_name || user?.username || 'Khách')}
+              </Text>
+              <Text style={styles.userRole}>{user?.rank || 'Thành viên'}</Text>
+              {user?.unit && <Text style={styles.userUnit}>{user.unit}</Text>}
+            </View>
           </View>
         </View>
 
         {/* Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
-            <Text style={styles.statNumber}>12</Text>
+            <Text style={styles.statNumber}>{orderCount}</Text>
             <Text style={styles.statLabel}>Đơn hàng</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{posts.length}</Text>
-            <Text style={styles.statLabel}>Chiến tích</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
@@ -110,30 +123,7 @@ export function ProfileView() {
           </View>
         </View>
 
-        {/* Lịch sử chiến tích */}
-        <View style={styles.menuContainer}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.menuSectionTitle}>Chiến tích của tôi</Text>
-            <TouchableOpacity onPress={loadUserData}><IconSymbol name="arrow.triangle.2.circlepath" size={20} color={UI_CONFIG.colors.primary} /></TouchableOpacity>
-          </View>
-          
-          {posts.length === 0 ? (
-            <Text style={{ padding: UI_CONFIG.spacing.md, color: UI_CONFIG.colors.textSecondary }}>Chưa có chiến tích nào.</Text>
-          ) : (
-            posts.map(post => (
-              <View key={post.id} style={styles.postItem}>
-                <Image source={{ uri: post.media_url }} style={styles.postMedia} />
-                <View style={styles.postInfo}>
-                  <Text style={styles.postTitle}>{post.title}</Text>
-                  <Text style={styles.postStatus}>
-                    Trạng thái: {post.status === 'pending' ? '⏳ Đang chờ' : post.status === 'approved' ? '✅ Đã duyệt' : '❌ Bị từ chối'}
-                  </Text>
-                  <Text style={styles.postDate}>{new Date(post.created_at).toLocaleDateString('vi-VN')}</Text>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
+        {/* Tạm ẩn Lịch sử chiến tích theo yêu cầu */}
 
         {/* Menu list */}
         <View style={styles.menuContainer}>
@@ -163,9 +153,13 @@ export function ProfileView() {
 
 const styles = StyleSheet.create({
   container: { paddingBottom: UI_CONFIG.spacing.xl, backgroundColor: '#F5F5F5' },
-  profileHeader: { flexDirection: 'row', padding: UI_CONFIG.spacing.lg, backgroundColor: UI_CONFIG.colors.background, alignItems: 'center', marginBottom: UI_CONFIG.spacing.sm },
-  avatar: { width: 80, height: 80, borderRadius: 40, marginRight: UI_CONFIG.spacing.md },
-  userInfo: { flex: 1 },
+  headerContainer: { backgroundColor: UI_CONFIG.colors.background, marginBottom: UI_CONFIG.spacing.sm },
+  coverContainer: { width: '100%', height: 140 },
+  coverImage: { width: '100%', height: '100%' },
+  profileHeader: { flexDirection: 'row', padding: UI_CONFIG.spacing.lg, paddingTop: 0, alignItems: 'flex-end', marginTop: -30 },
+  avatarWrapper: { width: 80, height: 80, borderRadius: 40, marginRight: UI_CONFIG.spacing.md, backgroundColor: '#fff', padding: 3, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4 },
+  avatar: { width: '100%', height: '100%', borderRadius: 37 },
+  userInfo: { flex: 1, paddingBottom: 10 },
   userName: { fontSize: UI_CONFIG.typography.sizes.xl, fontWeight: 'bold', color: UI_CONFIG.colors.text, marginBottom: 4 },
   userRole: { fontSize: UI_CONFIG.typography.sizes.md, color: UI_CONFIG.colors.primary, fontWeight: '500' },
   userUnit: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 2 },

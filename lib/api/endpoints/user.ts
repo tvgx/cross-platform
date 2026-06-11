@@ -20,4 +20,10 @@ export const userApi = {
 
   setPushSetting: (body: Partial<PushSetting>) =>
     apiCall<ApiResponse<PushSetting>>('POST', '/push_settings/set_push_setting', body),
+
+  getMyAddresses: () =>
+    apiCall<ApiResponse<any[]>>('GET', '/addresses/me'),
+
+  createAddress: (body: any) =>
+    apiCall<ApiResponse<any>>('POST', '/addresses/create', body),
 };

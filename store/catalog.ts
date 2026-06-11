@@ -43,27 +43,34 @@ export const useCatalogStore = create<CatalogState>()(
         }),
       markSynced: () => set({ lastSyncedAt: Date.now() }),
       setFetching: (value) => set({ isFetching: value }),
-      toggleLike: (productId, userId) => set((state) => {
-        const newProducts = state.products.map(p => {
-          if (p.id === productId) {
-            const newIsLiked = !p.is_liked;
-            const currentLikeCount = Number(p.like_count || p.like || 0);
-            const newLikeCount = newIsLiked ? (currentLikeCount + 1) : Math.max(0, currentLikeCount - 1);
-            
-            // Cập nhật ngầm SQLite
-            try {
-              const { ProductRepository } = require('../lib/repositories/ProductRepository');
-              ProductRepository.likeProduct(productId, userId, newIsLiked, newLikeCount);
-            } catch (err) {
-              console.warn('[CatalogStore] Lỗi cập nhật lượt thích vào SQLite', err);
+      toggleLike: (productId, userId) => {
+        let newIsLiked = false;
+        let newLikeCount = 0;
+        
+        set((state) => {
+          const newProducts = state.products.map(p => {
+            if (String(p.id) === String(productId)) {
+              newIsLiked = !p.is_liked;
+              const currentLikeCount = Number(p.like_count || p.like || 0);
+              newLikeCount = newIsLiked ? (currentLikeCount + 1) : Math.max(0, currentLikeCount - 1);
+              return { ...p, is_liked: newIsLiked, like_count: newLikeCount };
             }
-
-            return { ...p, is_liked: newIsLiked, like_count: newLikeCount };
-          }
-          return p;
+            return p;
+          });
+          return { products: newProducts };
         });
-        return { products: newProducts };
-      }),
+
+        // Run API update asynchronously
+        setTimeout(async () => {
+          try {
+            const { socialApi } = require('../lib/api/endpoints/social');
+            await socialApi.likeProduct(productId);
+          } catch (err) {
+            console.warn('[CatalogStore] Lỗi gọi API likeProduct', err);
+            // Revert state logic could be added here if needed
+          }
+        }, 0);
+      },
 
       isStale: () => {
         const { lastSyncedAt } = get();

@@ -187,17 +187,17 @@ export const initDB = () => {
         seller_id TEXT,
         category_id TEXT,
         brand_id TEXT,
-        name TEXT,         -- Thay đổi từ title
+        title TEXT,
         description TEXT,
         price INTEGER DEFAULT 0,
         price_new INTEGER DEFAULT 0,
-        image TEXT,        -- Thay đổi từ images
+        images TEXT,
         video TEXT,
         stock INTEGER DEFAULT 0,
         is_stock BOOLEAN DEFAULT 0,
         sold_count INTEGER DEFAULT 0,
         rating REAL DEFAULT 0,
-        like INTEGER DEFAULT 0,     -- Thay đổi từ like_count
+        like_count INTEGER DEFAULT 0,
         comment INTEGER DEFAULT 0,  -- Thêm mới
         is_liked BOOLEAN DEFAULT 0,
         created_at TEXT

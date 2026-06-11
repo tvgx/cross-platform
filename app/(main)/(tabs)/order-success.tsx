@@ -3,36 +3,27 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeArea } from '../../../components/layout/SafeArea';
 import { UI_CONFIG } from '../../../constants/config';
 import { TacticalButton } from '../../../components/ui/TacticalButton';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { IconSymbol } from '../../../components/ui/icon-symbol';
 
 export default function OrderSuccessScreen() {
   const router = useRouter();
-  const { orderId } = useLocalSearchParams<{ orderId: string }>();
 
   return (
     <SafeArea edges={['top', 'bottom']}>
       <View style={styles.container}>
         <View style={styles.iconContainer}>
-          <IconSymbol name="checkmark.shield.fill" size={80} color={UI_CONFIG.colors.primary} />
+          <IconSymbol name="checkmark.shield.fill" size={80} color={UI_CONFIG.colors.success} />
         </View>
         
-        <Text style={styles.title}>LỆNH MUA ĐÃ ĐƯỢC KHỞI TẠO</Text>
-        <Text style={styles.orderId}>ID: {orderId}</Text>
-        
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            Lệnh mua hàng của bạn đã được ghi nhận vào hệ thống cục bộ. 
-            Đơn hàng sẽ tự động đồng bộ tới Bộ Quốc Phòng khi thiết bị có kết nối mạng.
-          </Text>
-        </View>
+        <Text style={styles.title}>ĐƠN HÀNG CỦA BẠN ĐÃ ĐẶT THÀNH CÔNG</Text>
 
         <View style={styles.actionContainer}>
           <TacticalButton 
             text="XEM DANH SÁCH ĐƠN HÀNG" 
             variant="outline" 
             fullWidth 
-            onPress={() => router.replace('/(main)/(tabs)')} 
+            onPress={() => router.replace('/(main)/(tabs)/orders')} 
             style={{ marginBottom: 15 }}
           />
           <TacticalButton 
@@ -67,29 +58,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: UI_CONFIG.colors.text,
     textAlign: 'center',
-    letterSpacing: 2,
-    marginBottom: 10,
-  },
-  orderId: {
-    fontSize: 14,
-    color: UI_CONFIG.colors.primary,
-    fontWeight: '700',
-    marginBottom: 40,
     letterSpacing: 1,
-  },
-  infoBox: {
-    padding: 20,
-    backgroundColor: UI_CONFIG.colors.surfaceLighter,
-    borderRadius: 4,
-    borderLeftWidth: 4,
-    borderLeftColor: UI_CONFIG.colors.primary,
-    marginBottom: 60,
-  },
-  infoText: {
-    color: UI_CONFIG.colors.textSecondary,
-    lineHeight: 22,
-    fontSize: 14,
-    textAlign: 'center',
+    marginBottom: 40,
   },
   actionContainer: {
     width: '100%',

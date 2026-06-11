@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, FlatList, Platform, RefreshControl, StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { ActivityIndicator, Platform, RefreshControl, StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
@@ -50,7 +51,9 @@ export function HomeView() {
   };
 
   const renderProduct = useCallback(({ item }: { item: ProductListItem }) => (
-    <ProductCard item={item} />
+    <View style={{ flex: 1, padding: 4 }}>
+      <ProductCard item={item} />
+    </View>
   ), []);
 
   const handleLoadMore = () => {
@@ -73,15 +76,14 @@ export function HomeView() {
     <SwipeWrapper currentTab="index">
       <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: currentColors.background }}>
         <CustomAppBar title="TiếpTế" showSearch={true} onSearch={handleSearch} />
-        <FlatList
+        <FlashList
           data={displayedProducts}
           keyExtractor={(item, index) => `${item.id}-${index}`}
           renderItem={renderProduct}
           numColumns={Platform.OS === 'web' ? 4 : 2}
-          key={Platform.OS === 'web' ? 'web' : 'mobile'} // Force re-render on platform change
+          estimatedItemSize={250}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.container}
-          columnWrapperStyle={styles.productRow}
+          contentContainerStyle={[styles.container, { paddingHorizontal: 4 }]}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
@@ -234,10 +236,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: UI_CONFIG.spacing.xs,
-  },
-  productRow: {
-    gap: 8, // 8px gap typical of Shopee
-    paddingHorizontal: 8, // 8px padding on sides
   },
   footerLoader: {
     paddingVertical: 20,
