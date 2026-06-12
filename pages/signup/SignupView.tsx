@@ -4,11 +4,11 @@ import { SafeArea } from '../../components/layout/SafeArea';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { UI_CONFIG } from '../../constants/config';
-import { authApi } from '../../lib/api/endpoints/auth';
 import { useRepositories } from '../../context/RepositoryProvider';
-import { useAuthStore } from '../../store/auth';
+import { authApi } from '../../lib/api/endpoints/auth';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
+import { useAuthStore } from '../../store/auth';
 
 export function SignupView() {
   const { userRepository } = useRepositories();
@@ -37,16 +37,16 @@ export function SignupView() {
     try {
       // Tạo mã thiết bị UUID ngẫu nhiên dã chiến
       const uuid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      
+
       const signupBody = {
         phone_number: phonenumber,
         password,
         uuid,
       };
-      
+
       console.log('[Signup] Đang gọi API đăng ký tối giản...', signupBody);
       const res = await authApi.signup(signupBody);
-      
+
       if (res && (res.success || (res as any).code === '1000' || res.data)) {
         const { tokens, user } = res.data;
         console.log('[Signup] Đăng ký thành công từ server. User ID:', user.id);
@@ -54,17 +54,17 @@ export function SignupView() {
         // Lưu thông tin người dùng cục bộ vào SQLite để tác chiến ngoại tuyến
         userRepository.saveUser(user);
         userRepository.createWallet(user.id, 999999999999999999);
-        
+
         // Tự động kích hoạt trạng thái đăng nhập ngay lập tức
         setAuth(user, tokens);
         setLoading(false);
 
         Alert.alert('Thành công', 'Đăng ký tài khoản thành công! Tự động đăng nhập vào ứng dụng.', [
-          { 
-            text: 'Bắt đầu', 
+          {
+            text: 'Bắt đầu',
             onPress: () => {
               NavigationService.replace(ROUTES.DECLARE_INFO);
-            } 
+            }
           }
         ]);
       } else {
@@ -75,7 +75,22 @@ export function SignupView() {
     } catch (err: any) {
       console.log('[Signup] Mạng lỗi hoặc server từ chối:', err);
       setLoading(false);
-      Alert.alert('Lỗi kết nối', 'Không thể đăng ký tài khoản lúc này. Vui lòng kiểm tra kết nối mạng.');
+
+      const isNetworkError = err.message === 'Local Mode Only' || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
+
+      if (isNetworkError) {
+        Alert.alert('Lỗi kết nối mạng', 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet của bạn.');
+      } else {
+        let errMsg = err.message || 'Không thể đăng ký tài khoản lúc này.';
+        if (err.response?.data?.message) {
+          errMsg = err.response.data.message;
+        } else if (err.response?.status) {
+          if (err.response.status === 400) errMsg = 'Dữ liệu đăng ký không hợp lệ.';
+          else if (err.response.status === 9996) errMsg = 'Số điện thoại này đã được đăng ký.';
+          else if (err.response.status >= 500) errMsg = 'Lỗi máy chủ. Vui lòng thử lại sau.';
+        }
+        Alert.alert('Đăng ký thất bại', errMsg);
+      }
     }
   };
 

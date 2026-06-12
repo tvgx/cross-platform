@@ -90,7 +90,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const [catRes, brandRes, prodRes] = await Promise.all([
         productsApi.getCategories(),
         productsApi.getListBrand(),
-        productsApi.getListProducts({ limit: 50, page: 1 }),
+        productsApi.getListProducts({ limit: 100, page: 1 }), // Tải trước 100 sản phẩm
       ]);
 
       if (catRes.success) setCategories(catRes.data);
@@ -100,6 +100,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? prodRes.data
           : (prodRes.data && Array.isArray((prodRes.data as any).items) ? (prodRes.data as any).items : []);
         setProducts(items);
+
+        // --- Tải ngầm chi tiết sản phẩm và người bán chia thành từng chunk (đợt) 5 sản phẩm ---
+        if (items.length > 0) {
+          setTimeout(async () => {
+            console.log(`[BackgroundSync] Bắt đầu tải ngầm chi tiết ${items.length} sản phẩm...`);
+            const { ProductRepository } = require('../lib/repositories/ProductRepository');
+            for (let i = 0; i < items.length; i += 5) {
+              const chunk = items.slice(i, i + 5);
+              // Tải chi tiết sản phẩm (ép forceRefresh = true để lấy dữ liệu mới nhất từ server)
+              await Promise.allSettled(chunk.map((p: any) => ProductRepository.getProductDetail(p.id, true)));
+            }
+            console.log(`[BackgroundSync] Hoàn tất tải ngầm chi tiết 100 sản phẩm.`);
+          }, 2000); // Chờ 2s để UI render mượt mà trước khi chạy nền
+        }
       }
       markSynced();
     } catch {
@@ -131,7 +145,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!isLoggedIn || !user) return;
     try {
       const res = await userApi.getUserInfo(Number(user.id));
-      if (res.success) updateUser(res.data);
+      if (res.success) {
+        updateUser(res.data);
+        
+        // Cache lại thông tin người dùng và số dư ví để dùng khi Offline
+        const { UserRepository } = require('../lib/repositories/UserRepository');
+        const { balanceApi } = require('../lib/api/endpoints/misc');
+        
+        UserRepository.saveUser(res.data);
+        
+        const balRes = await balanceApi.getCurrent();
+        if (balRes.success && balRes.data) {
+           useAuthStore.getState().setBalance(balRes.data.balance);
+           UserRepository.updateUserBalance(String(user.id), balRes.data.balance);
+        }
+      }
     } catch {
       // Token may have been invalidated; axios interceptor handles 401.
     }
@@ -157,13 +185,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isOnline) {
       if (wasOffline.current) {
         // Back online after being offline — flush queued mutations
+        console.log('[AppProvider] Mạng đã kết nối lại. Đang tự động cập nhật dữ liệu...');
+        
         processQueue();
+        refreshCatalog();
+        
+        if (isLoggedIn) {
+          refreshUserInfo();
+          refreshNotifications();
+        }
+        
+        const { SyncService } = require('../services/SyncService');
+        SyncService.runSyncProcess();
+
         wasOffline.current = false;
       }
     } else {
       wasOffline.current = true;
     }
-  }, [isOnline, processQueue]);
+  }, [isOnline, processQueue, refreshCatalog, isLoggedIn, refreshUserInfo, refreshNotifications]);
 
   // ── Initial preload ────────────────────────────────────────────────────────
 
@@ -185,6 +225,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // Run all in parallel, but don't block app readiness.
         Promise.all(promises).catch(() => {});
       }
+
+      // Khởi tạo tiến trình đồng bộ nền
+      const { SyncService } = require('../services/SyncService');
+      SyncService.init();
 
       setAppReady(true);
     }

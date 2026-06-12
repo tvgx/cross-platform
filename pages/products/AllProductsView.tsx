@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { ProductCard } from '../../components/product/ProductCard';
@@ -22,16 +22,16 @@ export function AllProductsView() {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
   };
 
-  const loadData = async () => {
-    // Nếu chưa có data trong store thì mới hiện loading
-    if (!storeProducts || storeProducts.length === 0) {
+  const loadData = async (forceRefresh = false) => {
+    // Nếu chưa có data trong store thì mới hiện loading, hoặc nếu đang pull to refresh
+    if (!storeProducts || storeProducts.length === 0 || forceRefresh) {
       setLoading(true);
     } else {
       setProductsList(storeProducts);
     }
     
     try {
-      const data = await ProductRepository.getProducts();
+      const data = await ProductRepository.getProducts(undefined, forceRefresh);
       setProductsList(data);
     } catch (error) {
       console.error('[AllProductsView] Error loading products:', error);
@@ -127,6 +127,14 @@ export function AllProductsView() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.container}
           columnWrapperStyle={styles.productRow}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={() => loadData(true)}
+              colors={[UI_CONFIG.colors.primary]}
+              tintColor={UI_CONFIG.colors.primary}
+            />
+          }
         />
       )}
     </SafeArea>

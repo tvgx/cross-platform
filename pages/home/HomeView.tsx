@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
-import React, { useCallback, useEffect } from 'react';
-import { ActivityIndicator, Dimensions, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { ActivityIndicator, Animated, Dimensions, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
@@ -12,6 +12,8 @@ import { useProductStore } from '../../store/product';
 import { useRouter } from 'expo-router';
 import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
 import { Category, ProductListItem } from '../../types';
+
+const AnimatedFlashList = Animated.createAnimatedComponent(FlashList);
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -72,26 +74,38 @@ export function HomeView() {
     );
   };
 
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const diffClamp = Animated.diffClamp(scrollY, 0, Platform.OS === 'web' ? 60 : 56);
+  const translateY = diffClamp.interpolate({
+    inputRange: [0, Platform.OS === 'web' ? 60 : 56],
+    outputRange: [0, -(Platform.OS === 'web' ? 60 : 56)],
+  });
+
   return (
     <SwipeWrapper currentTab="index">
       <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: currentColors.background }}>
-        <CustomAppBar title="TiếpTế" showSearch={true} onSearch={handleSearch} />
-        <FlashList
+        <Animated.View style={{ transform: [{ translateY }], position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+          <CustomAppBar title="TiếpTế" showSearch={true} onSearch={handleSearch} />
+        </Animated.View>
+        <AnimatedFlashList
           data={displayedProducts}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderProduct}
+          keyExtractor={(item: any) => String(item.id)}
+          renderItem={renderProduct as any}
           numColumns={Platform.OS === 'web' ? 4 : 2}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.container, { paddingHorizontal: 4 }]}
+          contentContainerStyle={[styles.container, { paddingHorizontal: 4, paddingTop: Platform.OS === 'web' ? 60 : 56 }]}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+          scrollEventThrottle={16}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
           refreshControl={
             <RefreshControl
-              refreshing={isLoadingInitial && displayedProducts.length > 0}
+              refreshing={isLoadingInitial}
               onRefresh={handleRefresh}
               colors={[currentColors.primary]}
               tintColor={currentColors.primary}
+              progressViewOffset={Platform.OS === 'web' ? 60 : 56}
             />
           }
           ListHeaderComponent={

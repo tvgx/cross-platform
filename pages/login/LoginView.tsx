@@ -112,10 +112,19 @@ export function LoginView() {
     } catch (apiErr: any) {
       console.log('[Auth] Lỗi kết nối API đăng nhập hoặc lỗi nghiệp vụ:', apiErr);
 
-      // Nếu là lỗi nghiệp vụ (ví dụ: HTTP status 4xx từ server) chứ không phải lỗi mạng/kết nối
-      if (apiErr.response && apiErr.response.status >= 400 && apiErr.response.status < 500) {
+      const isNetworkError = apiErr.message === 'Local Mode Only' || apiErr.code === 'ERR_NETWORK' || apiErr.code === 'ECONNABORTED';
+
+      // Nếu không phải lỗi mạng thì báo lỗi nghiệp vụ
+      if (!isNetworkError) {
         setLoading(false);
-        const errMsg = apiErr.response.data?.message || 'Sai thông tin đăng nhập.';
+        let errMsg = apiErr.message || 'Sai thông tin đăng nhập.';
+        if (apiErr.response?.data?.message) {
+          errMsg = apiErr.response.data.message;
+        } else if (apiErr.response?.status) {
+          if (apiErr.response.status === 400 || apiErr.response.status === 401) errMsg = 'Sai số điện thoại hoặc mật khẩu.';
+          else if (apiErr.response.status === 404) errMsg = 'Tài khoản không tồn tại.';
+          else if (apiErr.response.status >= 500) errMsg = 'Lỗi máy chủ. Vui lòng thử lại sau.';
+        }
         Alert.alert('Đăng nhập thất bại', errMsg);
         return;
       }

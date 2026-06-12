@@ -10,24 +10,28 @@ import { useNetworkStore } from '../store/network';
 
 let activeOnlineInterval: any = null;
 let isInitialized = false;
+let isSyncing = false;
 
 export const SyncService = {
   /**
    * Quét và xử lý hàng đợi đồng bộ dã chiến.
    */
   async runSyncProcess() {
-    const state = await NetInfo.fetch();
-    const isBackendAlive = useNetworkStore.getState().isBackendAlive;
-
-    if (!state.isConnected) {
-      console.log('[Sync] Thiết bị Offline - Tạm hoãn đồng bộ lên server. (Cập nhật Local)');
-    }
-    
-    if (!isBackendAlive) {
-      console.log('[Sync] Máy chủ không phản hồi (Offline Mode) - Tự động hoàn tất tác vụ cục bộ.');
-    }
+    if (isSyncing) return;
+    isSyncing = true;
 
     try {
+      const state = await NetInfo.fetch();
+      const isOnline = useNetworkStore.getState().isOnline;
+
+      if (!state.isConnected) {
+        console.log('[Sync] Thiết bị Offline - Tạm hoãn đồng bộ lên server. (Cập nhật Local)');
+      }
+      
+      if (!isOnline) {
+        console.log('[Sync] Máy chủ không phản hồi (Offline Mode) - Tự động hoàn tất tác vụ cục bộ.');
+      }
+
       // 1. Lấy danh sách task từ SyncQueueRepository
       const tasks = SyncQueueRepository.getPendingTasks(10);
       
@@ -65,6 +69,8 @@ export const SyncService = {
       }
     } catch (error) {
       console.error('[Sync] Lỗi hệ thống đồng bộ:', error);
+    } finally {
+      isSyncing = false;
     }
   },
 
@@ -79,9 +85,9 @@ export const SyncService = {
     }
 
     try {
-      const isBackendAlive = useNetworkStore.getState().isBackendAlive;
+      const isOnline = useNetworkStore.getState().isOnline;
       
-      if (!isBackendAlive) {
+      if (!isOnline) {
         // Mô phỏng thành công ngay lập tức ở chế độ Local
         OrderRepository.markOrderSynced(orderId);
         return true;
@@ -143,8 +149,8 @@ export const SyncService = {
     console.log(`[Sync] Đang tải lên Media cho bài đăng: ${post.title}`);
 
     try {
-      const isBackendAlive = useNetworkStore.getState().isBackendAlive;
-      if (!isBackendAlive) {
+      const isOnline = useNetworkStore.getState().isOnline;
+      if (!isOnline) {
         PostRepository.markPostSynced(postId);
         return true;
       }
@@ -181,8 +187,8 @@ export const SyncService = {
   async submitAppeal(appealId: string, payload: any) {
     console.log(`[Sync] Đang đồng bộ khiếu nại chiến tích ${appealId} lên máy chủ...`);
     
-    const isBackendAlive = useNetworkStore.getState().isBackendAlive;
-    if (isBackendAlive) {
+    const isOnline = useNetworkStore.getState().isOnline;
+    if (isOnline) {
       await apiCall('POST', '/api/appeals', {
         appeal_id: appealId,
         ...payload
@@ -202,8 +208,8 @@ export const SyncService = {
     if (!payload) return true;
 
     try {
-      const isBackendAlive = useNetworkStore.getState().isBackendAlive;
-      if (!isBackendAlive) {
+      const isOnline = useNetworkStore.getState().isOnline;
+      if (!isOnline) {
         MessageRepository.markMessageSynced(messageId);
         return true;
       }

@@ -36,10 +36,8 @@ apiClient.interceptors.request.use(
     }
 
     // --- VERBOSE LOGGING: REQUEST ---
-    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.url}`);
-    if (config.data) {
-      console.log(`[API REQUEST BODY]`, JSON.stringify(config.data, null, 2));
-    }
+    const payloadLog = config.data ? ` - Payload: ${JSON.stringify(config.data)}` : '';
+    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.url}${payloadLog}`);
     // --------------------------------
 
     return config;
@@ -71,7 +69,7 @@ apiClient.interceptors.response.use(
 
       // --- VERBOSE LOGGING: SUCCESS RESPONSE ---
       console.log(`[API RESPONSE SUCCESS] ${response.config.method?.toUpperCase()} ${response.config.url}`);
-      console.log(`[API RESPONSE DATA]`, JSON.stringify(dataObj, null, 2).substring(0, 500) + (JSON.stringify(dataObj).length > 500 ? '... (truncated)' : ''));
+      console.log(`[API RESPONSE DATA]`, JSON.stringify(dataObj));
       // -----------------------------------------
     }
     return response;
@@ -84,9 +82,8 @@ apiClient.interceptors.response.use(
       removeStored('auth-storage');  // zustand persist key
       console.error(`[API RESPONSE 401] Token expired or unauthorized.`);
     } else if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) {
-      // If it's a network error or timeout, we might want to flag the backend as dead
-      useNetworkStore.getState().setBackendAlive(false);
-      console.error(`[API NETWORK ERROR] Backend marked as dead. Code: ${error.code}`);
+      // If it's a network error or timeout, log it
+      console.error(`[API NETWORK ERROR] Code: ${error.code}`);
     } else {
       console.error(`[API RESPONSE ERROR] Status: ${error.response?.status}, Data:`, error.response?.data);
     }
@@ -112,13 +109,12 @@ export async function apiCall<T>(
 ): Promise<T> {
   const networkStore = useNetworkStore.getState();
 
-  if (!networkStore.isBackendAlive) {
-    console.log(`[API Client] Backend is marked as dead (Offline Mode). Pinging health check in background...`);
-    // Ping background to recover if backend is back up
-    networkStore.checkBackendHealth();
-
+  if (!networkStore.isOnline) {
+    console.log(`[API Client] Device is offline (NetInfo). Falling back to Local Mode.`);
     // Throw error so caller falls back to Local immediately
-    return Promise.reject(new Error('Local Mode Only'));
+    const offlineError = new Error('Local Mode Only');
+    (offlineError as any).code = 'ERR_NETWORK';
+    return Promise.reject(offlineError);
   }
 
   const response = await apiClient.request<T>({ method, url, data, params });

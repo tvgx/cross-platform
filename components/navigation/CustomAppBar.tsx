@@ -6,6 +6,7 @@ import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { useAppStore } from '../../store/app';
 import { IconSymbol } from '../ui/icon-symbol';
+import { ROUTES } from '../../lib/navigation/routes';
 
 interface CustomAppBarProps {
   title?: string;
@@ -63,7 +64,7 @@ export function CustomAppBar({ title = "TiếpTế", showBack = false, showSearc
 
       <View style={styles.rightContainer}>
         {user && (
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push(ROUTES.NOTIFICATIONS)}>
             <IconSymbol name="bell" size={24} color={currentColors.white} />
           </TouchableOpacity>
         )}
