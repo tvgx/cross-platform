@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCatalogStore } from '../../store/catalog';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,9 +36,13 @@ export const Sidebar = ({
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: topPadding }]}>
-        <View style={styles.avatarPlaceholder} />
+        {userInfo.avatar ? (
+          <Image source={{ uri: userInfo.avatar }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder} />
+        )}
         <Text style={styles.userName}>{userInfo.name}</Text>
-        <Text style={styles.userEmail}>{userInfo.email}</Text>
+        {userInfo.email ? <Text style={styles.userEmail}>{userInfo.email}</Text> : null}
       </View>
 
       <ScrollView style={styles.menuContainer} contentContainerStyle={{ paddingBottom: bottomPadding }}>
@@ -96,6 +100,12 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: UI_CONFIG.colors.primary,
+    marginBottom: UI_CONFIG.spacing.md,
+  },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     marginBottom: UI_CONFIG.spacing.md,
   },
   userName: {

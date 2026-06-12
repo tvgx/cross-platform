@@ -16,10 +16,20 @@ export function AllProductsView() {
   const [loading, setLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'price_asc' | 'price_desc' | 'name_asc'>('newest');
+  const [sortBy, setSortBy] = useState<'price_asc' | 'price_desc' | 'name_asc'>('name_asc');
 
-  const loadData = async (isRefresh = false) => {
-    setLoading(true);
+  const removeTones = (str: string) => {
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+  };
+
+  const loadData = async () => {
+    // Nếu chưa có data trong store thì mới hiện loading
+    if (!storeProducts || storeProducts.length === 0) {
+      setLoading(true);
+    } else {
+      setProductsList(storeProducts);
+    }
+    
     try {
       const data = await ProductRepository.getProducts();
       setProductsList(data);
@@ -44,11 +54,12 @@ export function AllProductsView() {
     let result = [...productsList];
 
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(p =>
-        (p.title || p.name || '').toLowerCase().includes(q) ||
-        (p.description && p.description.toLowerCase().includes(q))
-      );
+      const q = removeTones(searchQuery.toLowerCase());
+      result = result.filter(p => {
+        const title = removeTones((p.title || p.name || '').toLowerCase());
+        const desc = removeTones((p.description || '').toLowerCase());
+        return title.includes(q) || desc.includes(q);
+      });
     }
 
     if (sortBy === 'price_asc') {
@@ -57,8 +68,6 @@ export function AllProductsView() {
       result.sort((a, b) => Number(b.price) - Number(a.price));
     } else if (sortBy === 'name_asc') {
       result.sort((a, b) => (a.title || a.name || '').localeCompare(b.title || b.name || ''));
-    } else {
-      result.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
     }
 
     setFilteredProducts(result);
@@ -84,10 +93,10 @@ export function AllProductsView() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortContainer}>
           <TouchableOpacity
-            style={[styles.sortButton, sortBy === 'newest' && styles.sortButtonActive]}
-            onPress={() => setSortBy('newest')}
+            style={[styles.sortButton, sortBy === 'name_asc' && styles.sortButtonActive]}
+            onPress={() => setSortBy('name_asc')}
           >
-            <Text style={[styles.sortText, sortBy === 'newest' && styles.sortTextActive]}>Mới nhất</Text>
+            <Text style={[styles.sortText, sortBy === 'name_asc' && styles.sortTextActive]}>Theo tên A-Z</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.sortButton, sortBy === 'price_asc' && styles.sortButtonActive]}
@@ -100,12 +109,6 @@ export function AllProductsView() {
             onPress={() => setSortBy('price_desc')}
           >
             <Text style={[styles.sortText, sortBy === 'price_desc' && styles.sortTextActive]}>Giá giảm</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.sortButton, sortBy === 'name_asc' && styles.sortButtonActive]}
-            onPress={() => setSortBy('name_asc')}
-          >
-            <Text style={[styles.sortText, sortBy === 'name_asc' && styles.sortTextActive]}>Theo tên A-Z</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>

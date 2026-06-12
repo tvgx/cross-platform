@@ -23,7 +23,7 @@ export default function OrderSuccessScreen() {
             text="XEM DANH SÁCH ĐƠN HÀNG" 
             variant="outline" 
             fullWidth 
-            onPress={() => router.replace('/(main)/(tabs)/orders')} 
+            onPress={() => router.replace('/(main)/orders' as any)} 
             style={{ marginBottom: 15 }}
           />
           <TacticalButton 

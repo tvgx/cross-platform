@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, Platform, RefreshControl, StyleSheet, Text, View, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
+import React, { useCallback, useEffect } from 'react';
+import { ActivityIndicator, Dimensions, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
@@ -9,9 +9,9 @@ import { ProductCard } from '../../components/product/ProductCard';
 import { useAppStore } from '../../store/app';
 import { useProductStore } from '../../store/product';
 
-import { ProductListItem, Category } from '../../types';
 import { useRouter } from 'expo-router';
 import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
+import { Category, ProductListItem } from '../../types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -21,7 +21,7 @@ export function HomeView() {
   const isLoadingInitial = useProductStore(state => state.isLoadingInitial);
   const isFetchingMore = useProductStore(state => state.isFetchingMore);
   const hasMore = useProductStore(state => state.hasMore);
-  
+
   const fetchInitialData = useProductStore(state => state.fetchInitialData);
   const loadNextPage = useProductStore(state => state.loadNextPage);
   const addInterest = useProductStore(state => state.addInterest);
@@ -98,27 +98,27 @@ export function HomeView() {
             <>
               {/* Hero Banner */}
               <View style={[styles.heroContainer, { backgroundColor: currentColors.surface }]}>
-                <Image 
-                  source={require('../../assets/images/placeholder_survival.png')} 
-                  style={styles.heroImage} 
+                <Image
+                  source={require('../../assets/images/cover.jpg')}
+                  style={styles.heroImage}
                 />
                 <View style={[styles.heroOverlay, { backgroundColor: 'rgba(218, 37, 29, 0.4)' }]}>
                   <Text style={styles.heroTitle}>TiếpTế</Text>
-                  <Text style={styles.heroSubTitle}>Nhân dân làm chủ</Text>
+                  <Text style={styles.heroSubTitle}>Nhanh chóng - Đơn giản - Tiện lợi</Text>
                 </View>
               </View>
 
               {/* Categories Slider */}
               {categories && categories.length > 0 && (
                 <View style={[styles.categoriesSection, { backgroundColor: currentColors.surface }]}>
-                  <ScrollView 
-                    horizontal 
+                  <ScrollView
+                    horizontal
                     showsHorizontalScrollIndicator={false}
                     contentContainerStyle={styles.categoriesScrollContent}
                   >
                     {categories.map((cat, index) => (
-                      <TouchableOpacity 
-                        key={cat.id || index.toString()} 
+                      <TouchableOpacity
+                        key={cat.id || index.toString()}
                         style={styles.categoryItem}
                         onPress={() => handleCategoryPress(cat)}
                         activeOpacity={0.7}
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 2,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: {width: 1, height: 1},
+    textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4
   },
   heroSubTitle: {
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginTop: 4,
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: {width: 1, height: 1},
+    textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4
   },
   categoriesSection: {

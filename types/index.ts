@@ -12,6 +12,7 @@ export interface User {
   firstname?: string;
   lastname?: string;
   avatar?: string;
+  cover_image?: string;
   rank?: string;           // military rank
   unit?: string;
   virtual_balance: number; // virtual currency (achievement points)

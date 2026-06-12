@@ -4,13 +4,13 @@ import { SafeArea } from '../../components/layout/SafeArea';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { UI_CONFIG } from '../../constants/config';
-import { useAuthStore } from '../../store/auth';
 import { useRepositories } from '../../context/RepositoryProvider';
 import { authApi } from '../../lib/api/endpoints/auth';
-import { usersApi } from '../../lib/api/endpoints/users';
 import { balanceApi } from '../../lib/api/endpoints/misc';
+import { usersApi } from '../../lib/api/endpoints/users';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
+import { useAuthStore } from '../../store/auth';
 
 export function LoginView() {
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -32,10 +32,10 @@ export function LoginView() {
       // 1. Thử gọi API đăng nhập từ server
       console.log('[Auth] Đang gọi API đăng nhập từ server...');
       const res = await authApi.login({ phone_number: phoneNumber, password });
-      
+
       if (res && (res.success || (res as any).code === '1000' || res.data)) {
         const rawData = res.data as any;
-        
+
         // Handle both expected formats: nested {user, tokens} or flat {id, username, token}
         const user = rawData.user || {
           id: rawData.id || String(Math.random()),
@@ -47,13 +47,13 @@ export function LoginView() {
           is_seller: false,
           created_at: new Date().toISOString()
         };
-        
+
         const tokens = rawData.tokens || {
           access_token: rawData.token
         };
 
         if (!user.id) {
-           throw new Error('Dữ liệu trả về không hợp lệ');
+          throw new Error('Dữ liệu trả về không hợp lệ');
         }
 
         console.log('[Auth] Đăng nhập thành công từ server. User ID:', user.id);
@@ -67,25 +67,30 @@ export function LoginView() {
         // Fetch extra user info and balance
         try {
           console.log('[Auth] Fetching extra user info and wallet balance...');
-          const [userInfoRes, balanceRes, historyRes] = await Promise.all([
+          const [userInfoResult, balanceResult] = await Promise.allSettled([
             usersApi.getUserInfo(user.id),
-            balanceApi.getCurrent(),
-            balanceApi.getHistory({ page: 1, limit: 1 })
+            balanceApi.getCurrent()
           ]);
 
-          if (userInfoRes?.data) {
-            useAuthStore.getState().updateUser(userInfoRes.data as any);
+          if (userInfoResult.status === 'fulfilled' && userInfoResult.value?.data) {
+            console.log('[Auth] Extra user info fetched.');
+            const extraData = userInfoResult.value.data;
+            user.firstname = extraData.firstname;
+            user.lastname = extraData.lastname;
+            user.email = extraData.email;
+            user.avatar = extraData.avatar || user.avatar;
+            user.cover_image = extraData.cover_image || user.cover_image;
+            
+            // Cập nhật lại store sau khi đã thay đổi user info
+            useAuthStore.getState().updateUser(extraData as any);
           }
-          if (balanceRes?.data?.balance !== undefined) {
-            useAuthStore.getState().setBalance(balanceRes.data.balance);
-            useAuthStore.getState().updateUser({ virtual_balance: balanceRes.data.balance });
+
+          if (balanceResult.status === 'fulfilled' && balanceResult.value?.data) {
+            useAuthStore.getState().setBalance(balanceResult.value.data.balance);
+            console.log(`[Auth] Loaded wallet balance: ${balanceResult.value.data.balance}`);
           }
-          // Extract total spent if possible, else default to 0
-          if (historyRes?.data?.total !== undefined) {
-            useAuthStore.getState().setTotalSpent(historyRes.data.total);
-          }
-        } catch (err) {
-          console.log('[Auth] Non-fatal error fetching extra info:', err);
+        } catch (extraErr) {
+          console.log('[Auth] Non-fatal error fetching extra info:', extraErr);
         }
 
         setLoading(false);
@@ -106,7 +111,7 @@ export function LoginView() {
       }
     } catch (apiErr: any) {
       console.log('[Auth] Lỗi kết nối API đăng nhập hoặc lỗi nghiệp vụ:', apiErr);
-      
+
       // Nếu là lỗi nghiệp vụ (ví dụ: HTTP status 4xx từ server) chứ không phải lỗi mạng/kết nối
       if (apiErr.response && apiErr.response.status >= 400 && apiErr.response.status < 500) {
         setLoading(false);

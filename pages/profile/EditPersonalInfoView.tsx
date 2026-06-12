@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TextInput, View, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TextInput, View, TouchableOpacity, Modal, FlatList, ActivityIndicator } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { Header } from '../../components/navigation/Header';
 import { Button } from '../../components/ui/Button';
 import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { usersApi } from '../../lib/api/endpoints/users';
+import { ordersApi } from '../../lib/api/endpoints/orders';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -21,6 +22,40 @@ export function EditPersonalInfoView() {
   const [avatarUri, setAvatarUri] = useState(user?.avatar || 'https://i.pravatar.cc/150');
   const [coverUri, setCoverUri] = useState((user as any)?.cover_image || 'https://via.placeholder.com/800x400');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Address Modal States
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [provinceName, setProvinceName] = useState('');
+  const [wardName, setWardName] = useState('');
+  const [addressDetail, setAddressDetail] = useState('');
+
+  const handleConfirmAddress = async () => {
+    if (!provinceName || !wardName || !addressDetail) {
+      alert('Vui lòng điền đầy đủ thông tin địa chỉ.');
+      return;
+    }
+    const fullAddress = `${addressDetail}, ${wardName}, ${provinceName}`;
+    
+    try {
+      const body = {
+        receiver_name: `${lastName} ${firstName}`.trim() || user?.full_name || 'Khách hàng',
+        phone: user?.username || '',
+        address: addressDetail,
+        address_detail: addressDetail,
+        full_address: fullAddress,
+        is_default: true,
+        lat: 0,
+        lng: 0,
+        address_id: [] // Không có API nên truyền mảng rỗng hoặc tuỳ ý
+      };
+      await ordersApi.addOrderAddress(body);
+    } catch (err) {
+      console.error('Error adding order address:', err);
+    }
+
+    setAddress(fullAddress);
+    setAddressModalVisible(false);
+  };
 
   const handleSelectImage = async (type: 'avatar' | 'cover') => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -163,12 +198,11 @@ export function EditPersonalInfoView() {
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Địa chỉ</Text>
-          <TextInput
-            style={styles.input}
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Nhập địa chỉ chi tiết"
-          />
+          <TouchableOpacity style={styles.input} onPress={() => setAddressModalVisible(true)}>
+            <Text style={{ color: address ? UI_CONFIG.colors.text : UI_CONFIG.colors.textSecondary }}>
+              {address || 'Thiết lập địa chỉ'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.formGroup}>
@@ -193,6 +227,54 @@ export function EditPersonalInfoView() {
           <Button text={isSaving ? "Đang lưu..." : "Lưu thay đổi"} onPress={handleSave} disabled={isSaving} />
         </View>
       </ScrollView>
+
+      {/* Address Edit Bottom Sheet */}
+      <Modal visible={addressModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheetContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Cài đặt địa chỉ</Text>
+              <TouchableOpacity onPress={() => setAddressModalVisible(false)}>
+                <Ionicons name="close" size={24} color={UI_CONFIG.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: UI_CONFIG.spacing.md, gap: 12 }}>
+              <Text style={styles.label}>Tỉnh/Thành phố</Text>
+              <TextInput 
+                style={styles.input}
+                placeholder="Nhập Tỉnh/Thành phố" 
+                value={provinceName} 
+                onChangeText={setProvinceName} 
+              />
+
+              <Text style={styles.label}>Phường/Xã/Quận/Huyện</Text>
+              <TextInput 
+                style={styles.input}
+                placeholder="Nhập Phường/Xã, Quận/Huyện" 
+                value={wardName} 
+                onChangeText={setWardName} 
+              />
+
+              <Text style={styles.label}>Tên đường, Tòa nhà, Số nhà</Text>
+              <TextInput 
+                style={styles.input}
+                placeholder="Nhập địa chỉ chi tiết" 
+                value={addressDetail} 
+                onChangeText={setAddressDetail} 
+              />
+              
+              <Button 
+                text="Xác nhận"
+                onPress={handleConfirmAddress}
+                backgroundColor={UI_CONFIG.colors.primary}
+                style={{ marginTop: 16 }}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </SafeArea>
   );
 }
@@ -289,5 +371,59 @@ const styles = StyleSheet.create({
   buttonContainer: {
     marginTop: UI_CONFIG.spacing.xl,
     paddingBottom: UI_CONFIG.spacing.xl,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetContainer: {
+    backgroundColor: UI_CONFIG.colors.background,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '80%',
+    minHeight: '50%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: UI_CONFIG.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: UI_CONFIG.colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  selector: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: UI_CONFIG.colors.surfaceLighter,
+    borderWidth: 1,
+    borderColor: UI_CONFIG.colors.border,
+    padding: UI_CONFIG.spacing.md,
+    borderRadius: 8,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: UI_CONFIG.colors.text,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: UI_CONFIG.colors.textSecondary,
+  },
+  center: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  listItem: {
+    padding: UI_CONFIG.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: UI_CONFIG.colors.surfaceLighter,
+  },
+  listItemText: {
+    fontSize: 16,
   }
 });

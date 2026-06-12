@@ -70,7 +70,7 @@ describe('ProductRepository', () => {
         expect.arrayContaining(['99', 'Detail Product', 500])
       );
       expect(product?.id).toBe('99');
-      expect(product?.name).toBe('Detail Product');
+      expect(product?.title).toBe('Detail Product');
     });
   });
 

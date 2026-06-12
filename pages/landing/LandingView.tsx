@@ -12,7 +12,8 @@ export function LandingView() {
     <SafeArea>
       <View style={styles.container}>
         <View style={styles.content}>
-          <Text style={styles.title}>Army+ E-commerce</Text>
+          <Image source={require('../../assets/icons/aot.jpg')} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>Tiếp tế</Text>
           <Text style={styles.subtitle}>Nền tảng thương mại điện tử chuyên dụng dành cho Quân nhân.</Text>
           
           <View style={styles.buttonContainer}>
@@ -44,6 +45,12 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400, // Grid style max-width for Web
     alignItems: 'center',
+  },
+  logo: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    marginBottom: UI_CONFIG.spacing.lg,
   },
   title: {
     fontSize: UI_CONFIG.typography.sizes.xxl,

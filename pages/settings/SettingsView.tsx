@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Switch, ScrollView } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { Header } from '../../components/navigation/Header';
 import { UI_CONFIG } from '../../constants/config';
-import { useAuthStore } from '../../store/auth';
 import { useAppStore } from '../../store/app';
+import { useAuthStore } from '../../store/auth';
 
 export function SettingsView() {
   const { logout } = useAuthStore();
@@ -18,31 +18,31 @@ export function SettingsView() {
     <SafeArea edges={['top']} style={{ backgroundColor: currentColors.background }}>
       <Header title="CÀI ĐẶT" leftIcon="arrow-back" showNotification={false} />
       <ScrollView contentContainerStyle={styles.container}>
-        
+
         <Text style={[styles.sectionTitle, { color: currentColors.textSecondary }]}>Tài khoản</Text>
         <View style={[styles.settingItem, { borderBottomColor: currentColors.border }]}>
           <Text style={[styles.settingText, { color: currentColors.text }]}>Thông báo đẩy</Text>
-          <Switch 
-            value={notifications} 
-            onValueChange={setNotifications} 
+          <Switch
+            value={notifications}
+            onValueChange={setNotifications}
             trackColor={{ false: '#ccc', true: currentColors.primary }}
           />
         </View>
         <View style={[styles.settingItem, { borderBottomColor: currentColors.border }]}>
           <Text style={[styles.settingText, { color: currentColors.text }]}>Xác thực FaceID / Vân tay</Text>
-          <Switch 
-            value={faceId} 
-            onValueChange={setFaceId} 
+          <Switch
+            value={faceId}
+            onValueChange={setFaceId}
             trackColor={{ false: '#ccc', true: currentColors.primary }}
           />
         </View>
 
         <Text style={[styles.sectionTitle, { color: currentColors.textSecondary }]}>Hiển thị</Text>
         <View style={[styles.settingItem, { borderBottomColor: currentColors.border }]}>
-          <Text style={[styles.settingText, { color: currentColors.text }]}>Giao diện Tối (Đảng & Nhân dân)</Text>
-          <Switch 
-            value={isDarkMode} 
-            onValueChange={setDarkMode} 
+          <Text style={[styles.settingText, { color: currentColors.text }]}>Giao diện tối</Text>
+          <Switch
+            value={isDarkMode}
+            onValueChange={setDarkMode}
             trackColor={{ false: '#ccc', true: currentColors.primary }}
           />
         </View>
@@ -52,7 +52,7 @@ export function SettingsView() {
         <Text style={[styles.logoutText, { color: currentColors.danger }]} onPress={logout}>
           Đăng xuất
         </Text>
-        
+
         <Text style={[styles.versionText, { color: currentColors.textSecondary }]}>Phiên bản 1.0.0 (TiếpTế)</Text>
       </ScrollView>
     </SafeArea>
@@ -60,7 +60,7 @@ export function SettingsView() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     padding: UI_CONFIG.spacing.lg,
   },
   sectionTitle: {

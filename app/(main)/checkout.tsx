@@ -131,7 +131,7 @@ export default function CheckoutScreen() {
 
       setShowSuccessToast(true);
       setTimeout(() => {
-        router.replace('/(main)/(tabs)/order-success');
+        router.push('/(main)/order-success' as any);
       }, 1500);
 
     } catch (err: any) {

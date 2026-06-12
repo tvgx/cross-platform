@@ -5,17 +5,31 @@ import { Header } from '../../components/navigation/Header';
 import { UI_CONFIG } from '../../constants/config';
 import { useAuthStore } from '../../store/auth';
 import { userApi } from '../../lib/api/endpoints/user';
+import { Button } from '../../components/ui/Button';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 
 export function PersonalInfoView() {
-  const { user } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [addresses, setAddresses] = useState<any[]>([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(true);
 
   useEffect(() => {
+    loadUserInfo();
     loadAddresses();
   }, []);
+
+  const loadUserInfo = async () => {
+    if (!user?.id) return;
+    try {
+      const res = await userApi.getUserInfo(user.id);
+      if (res && res.data) {
+        updateUser(res.data as any);
+      }
+    } catch (err) {
+      console.error('Error fetching user info:', err);
+    }
+  };
 
   const loadAddresses = async () => {
     try {
@@ -37,6 +51,10 @@ export function PersonalInfoView() {
   const defaultAddressStr = addresses.length > 0 
     ? (addresses.find(a => a.is_default)?.full_address || addresses[0].full_address || addresses[0].address)
     : (user?.address || 'Chưa cập nhật địa chỉ');
+
+  const fullName = (user?.lastname || user?.firstname) 
+    ? `${user?.lastname || ''} ${user?.firstname || ''}`.trim()
+    : (user?.full_name || 'Chưa cập nhật');
 
   return (
     <SafeArea edges={['top']}>
@@ -68,9 +86,7 @@ export function PersonalInfoView() {
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
             <Text style={styles.label}>Họ và Tên</Text>
-            <Text style={styles.value}>
-              {(user?.lastname || '') + ' ' + (user?.firstname || '') || 'Chưa cập nhật'}
-            </Text>
+            <Text style={styles.value}>{fullName}</Text>
           </View>
 
           <View style={styles.divider} />
@@ -109,12 +125,26 @@ export function PersonalInfoView() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Địa chỉ giao hàng mặc định</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Sổ địa chỉ</Text>
+          <Button 
+            text="Quản lý" 
+            variant="secondary"
+            onPress={() => NavigationService.navigate('/(main)/my-addresses' as any)} 
+          />
+        </View>
         <View style={styles.infoCard}>
           {isLoadingAddresses ? (
             <ActivityIndicator size="small" color={UI_CONFIG.colors.primary} />
+          ) : addresses.length === 0 ? (
+            <Text style={styles.addressValue}>Bạn chưa có địa chỉ giao hàng nào.</Text>
           ) : (
-            <Text style={styles.addressValue}>{defaultAddressStr}</Text>
+            <>
+              <Text style={styles.addressValue}>{defaultAddressStr}</Text>
+              {addresses.length > 1 && (
+                <Text style={styles.moreAddressText}>và {addresses.length - 1} địa chỉ khác</Text>
+              )}
+            </>
           )}
         </View>
 
@@ -203,5 +233,18 @@ const styles = StyleSheet.create({
     color: UI_CONFIG.colors.textSecondary,
     marginBottom: 8,
     marginLeft: 4,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  moreAddressText: {
+    fontSize: UI_CONFIG.typography.sizes.sm,
+    color: UI_CONFIG.colors.textSecondary,
+    marginTop: 4,
+    fontStyle: 'italic',
   }
 });

@@ -45,8 +45,8 @@ export const balanceApi = {
   getCurrent: () =>
     apiCall<ApiResponse<{ balance: number }>>('POST', '/wallets/get_current_balance'),
 
-  getHistory: (params?: { page?: number; limit?: number }) =>
-    apiCall<ApiResponse<PaginatedResponse<BalanceTransaction>>>('POST', '/wallets/get_balance_history', undefined, params as Record<string, unknown>),
+  getHistory: (params?: { index?: number; count?: number }) =>
+    apiCall<ApiResponse<PaginatedResponse<BalanceTransaction>>>('POST', '/wallets/get_balance_history', params),
 
   createWithdrawRequest: (body: { amount: number; note?: string }) =>
     apiCall<ApiResponse<WithdrawRequest>>('POST', '/create_withdraw_request', body),

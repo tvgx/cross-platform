@@ -39,6 +39,8 @@ const MAPPING = {
   'bell': 'notifications',
   'receipt': 'receipt',
   'gear': 'settings',
+  'wallet': 'account-balance-wallet',
+  'creditcard': 'credit-card',
 } as any;
 
 /**

@@ -53,20 +53,7 @@ jest.mock('expo-background-task', () => ({
   },
 }));
 
-// Mock AsyncStorage hoặc react-native-mmkv nếu có (ở đây project dùng MMKV)
-jest.mock('react-native-mmkv', () => {
-  return {
-    MMKV: jest.fn().mockImplementation(() => ({
-      set: jest.fn(),
-      getString: jest.fn(),
-      getNumber: jest.fn(),
-      getBoolean: jest.fn(),
-      delete: jest.fn(),
-      clearAll: jest.fn(),
-      contains: jest.fn(),
-    })),
-  };
-});
+// Removed MMKV mock
 
 // Mock expo-constants
 jest.mock('expo-constants', () => ({

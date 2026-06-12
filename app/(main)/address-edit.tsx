@@ -1,25 +1,24 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { Header } from '../../components/navigation/Header';
 import { UI_CONFIG } from '../../constants/config';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ordersApi } from '../../lib/api/endpoints/orders';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Ionicons } from '@expo/vector-icons';
 import { useCheckoutStore } from '../../store/checkout';
 
-export default function AddressAddScreen() {
+export default function AddressEditScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const setAddress = useCheckoutStore(state => state.setAddress);
 
-  const [receiverName, setReceiverName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [addressDetail, setAddressDetail] = useState('');
-
-  const [provinceName, setProvinceName] = useState('');
-  const [wardName, setWardName] = useState('');
+  const [receiverName, setReceiverName] = useState(params.receiver_name as string || '');
+  const [phone, setPhone] = useState(params.phone as string || '');
+  const [provinceName, setProvinceName] = useState(params.province as string || '');
+  const [wardName, setWardName] = useState(params.ward as string || '');
+  const [addressDetail, setAddressDetail] = useState(params.address as string || '');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -39,18 +38,19 @@ export default function AddressAddScreen() {
         address: addressDetail,
         address_detail: addressDetail,
         full_address: fullAddress,
-        is_default: false,
+        is_default: params.is_default === 'true',
         lat: 0,
         lng: 0,
         address_id: []
       };
 
-      const res = await ordersApi.addOrderAddress(body);
+      const res = await ordersApi.editOrderAddress(params.id as string, body);
       if (res.data) {
+        // Cập nhật lại store nếu đây là địa chỉ đang được chọn checkout
         setAddress(res.data);
         router.back();
       } else {
-        Alert.alert('Lỗi', 'Không thể thêm địa chỉ.');
+        Alert.alert('Lỗi', 'Không thể cập nhật địa chỉ.');
       }
     } catch (err) {
       console.error(err);
@@ -62,7 +62,7 @@ export default function AddressAddScreen() {
 
   return (
     <SafeArea edges={['top', 'bottom']}>
-      <Header leftIcon="arrow-back" onPressLeft={() => router.back()} title="Thêm Địa chỉ" />
+      <Header leftIcon="arrow-back" onPressLeft={() => router.back()} title="Sửa Địa chỉ" />
       
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.label}>Liên hệ</Text>
@@ -121,24 +121,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: UI_CONFIG.colors.textSecondary,
     marginBottom: 4,
-  },
-  selector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: UI_CONFIG.colors.surfaceLighter,
-    borderWidth: 1,
-    borderColor: UI_CONFIG.colors.border,
-    padding: UI_CONFIG.spacing.md,
-    borderRadius: 8,
-  },
-  selectorText: {
-    fontSize: 16,
-    color: UI_CONFIG.colors.text,
-  },
-  placeholderText: {
-    fontSize: 16,
-    color: UI_CONFIG.colors.textSecondary,
   },
   footer: {
     padding: UI_CONFIG.spacing.md,

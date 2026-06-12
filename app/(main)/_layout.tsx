@@ -3,13 +3,21 @@ import { Drawer } from 'expo-router/drawer';
 import { Sidebar } from '../../components/navigation/Sidebar';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
+import { useAuthStore } from '../../store/auth';
 
 export default function MainDrawerLayout() {
+  const user = useAuthStore(state => state.user);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
         drawerContent={(props) => (
           <Sidebar 
+            userInfo={{
+              name: (user?.firstname || user?.lastname) ? `${user?.lastname || ''} ${user?.firstname || ''}`.trim() : (user?.full_name || user?.username || 'Khách'),
+              email: user?.email || '',
+              avatar: user?.avatar
+            }}
             activeItem={props.state.routeNames[props.state.index]}
             onMenuSelect={(key) => {
               if (key === 'home') {

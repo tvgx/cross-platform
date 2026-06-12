@@ -9,7 +9,7 @@ export interface PushSetting {
 }
 
 export const userApi = {
-  getUserInfo: (userId: number) =>
+  getUserInfo: (userId: string | number) =>
     apiCall<ApiResponse<User>>('POST', '/users/get_user_info', { user_id: userId }),
 
   setUserInfo: (body: Partial<User>) =>

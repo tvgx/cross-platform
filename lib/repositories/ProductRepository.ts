@@ -151,7 +151,14 @@ export const ProductRepository = {
                 p.created_at || new Date().toISOString()
               ]
             );
-            return p;
+            return {
+              ...p,
+              title: p.title || p.name || 'Không có tên',
+              price: Number(p.price) || 0,
+              price_new: Number(p.price_new) || 0,
+              images: p.images ? [p.images] : p.image ? [p.image] : [],
+              is_stock: p.is_stock === 1 || p.is_stock === true,
+            } as Product;
           }
         } catch (err) {
           console.warn('[ProductRepo] Lỗi lấy chi tiết sản phẩm từ Server, fallback về SQLite:', err);

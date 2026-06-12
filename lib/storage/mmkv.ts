@@ -17,71 +17,43 @@ if (Platform.OS === 'web') {
     }
   };
 } else {
-  let mmkvSuccessfullyLoaded = false;
+  // Sử dụng SQLite KeyValueStore thay cho MMKV để đảm bảo hoạt động trơn tru trong Expo Go
+  const { db } = require('./sqlite');
   
-  // Bỏ qua MMKV hoàn toàn nếu đang ở trong Expo Go để tránh warning và lỗi NativeModules
-  if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
-    try {
-      const { createMMKV } = require('react-native-mmkv');
-      // Attempt a test operation to verify JSI/NitroModules are available
-      const testStorage = createMMKV({ id: 'militart-store-test' });
-      testStorage.set('__test_key__', '1');
-      testStorage.delete('__test_key__');
-      mmkvSuccessfullyLoaded = true;
-    } catch (e) {
-      console.warn('[MMKV Fallback]: MMKV/NitroModules is not supported in this environment. Falling back to SQLite KeyValueStore.');
-    }
-  } else {
-    console.log('[MMKV Fallback]: Running in Expo Go, safely using SQLite KeyValueStore instead of MMKV.');
+  try {
+    db.execSync('CREATE TABLE IF NOT EXISTS KeyValueStore (key TEXT PRIMARY KEY, value TEXT);');
+  } catch (err) {
+    console.error('[Storage Error]: Failed to create KeyValueStore table:', err);
   }
 
-  if (mmkvSuccessfullyLoaded) {
-    const { createMMKV } = require('react-native-mmkv');
-    const mmkv = createMMKV({ id: 'militart-store' });
-    storageInstance = {
-      getString: (key: string) => mmkv.getString(key),
-      set: (key: string, value: string | number | boolean) => mmkv.set(key, value),
-      remove: (key: string) => mmkv.delete(key)
-    };
-  } else {
-    // SQLite-backed fallback for Expo Go compatibility
-    const { db } = require('./sqlite');
-    
-    try {
-      db.execSync('CREATE TABLE IF NOT EXISTS KeyValueStore (key TEXT PRIMARY KEY, value TEXT);');
-    } catch (err) {
-      console.error('[MMKV Fallback Error]: Failed to create KeyValueStore table:', err);
-    }
-
-    storageInstance = {
-      getString: (key: string) => {
-        try {
-          const row = db.getFirstSync('SELECT value FROM KeyValueStore WHERE key = ?', [key]);
-          return row ? (row as any).value : null;
-        } catch (e: any) {
-          console.warn('[MMKV Fallback Warning]: getString failed for key:', key, e.message);
-          return null;
-        }
-      },
-      set: (key: string, value: string | number | boolean) => {
-        try {
-          db.runSync(
-            'INSERT OR REPLACE INTO KeyValueStore (key, value) VALUES (?, ?)',
-            [key, value.toString()]
-          );
-        } catch (e: any) {
-          console.warn('[MMKV Fallback Warning]: set failed for key:', key, e.message);
-        }
-      },
-      remove: (key: string) => {
-        try {
-          db.runSync('DELETE FROM KeyValueStore WHERE key = ?', [key]);
-        } catch (e: any) {
-          console.warn('[MMKV Fallback Warning]: remove failed for key:', key, e.message);
-        }
+  storageInstance = {
+    getString: (key: string) => {
+      try {
+        const row = db.getFirstSync('SELECT value FROM KeyValueStore WHERE key = ?', [key]);
+        return row ? (row as any).value : null;
+      } catch (e: any) {
+        console.warn('[Storage Warning]: getString failed for key:', key, e.message);
+        return null;
       }
-    };
-  }
+    },
+    set: (key: string, value: string | number | boolean) => {
+      try {
+        db.runSync(
+          'INSERT OR REPLACE INTO KeyValueStore (key, value) VALUES (?, ?)',
+          [key, value.toString()]
+        );
+      } catch (e: any) {
+        console.warn('[Storage Warning]: set failed for key:', key, e.message);
+      }
+    },
+    remove: (key: string) => {
+      try {
+        db.runSync('DELETE FROM KeyValueStore WHERE key = ?', [key]);
+      } catch (e: any) {
+        console.warn('[Storage Warning]: remove failed for key:', key, e.message);
+      }
+    }
+  };
 }
 
 // Single storage instance shared across the app.

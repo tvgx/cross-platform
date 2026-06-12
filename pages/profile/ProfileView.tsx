@@ -34,6 +34,7 @@ export function ProfileView() {
     try {
       // Load orders to get count from backend
       const ordersRes = await ordersApi.getPurchases({ index: 0, count: 1 });
+      
       if (ordersRes.data?.total !== undefined) {
         setOrderCount(ordersRes.data.total);
       } else if (ordersRes.data?.items) {
@@ -92,6 +93,7 @@ export function ProfileView() {
                 {(user?.firstname || user?.lastname) ? `${user?.lastname || ''} ${user?.firstname || ''}`.trim() : (user?.full_name || user?.username || 'Khách')}
               </Text>
               <Text style={styles.userRole}>{user?.rank || 'Thành viên'}</Text>
+              {user?.email ? <Text style={styles.userEmail}>{user.email}</Text> : null}
               {user?.unit && <Text style={styles.userUnit}>{user.unit}</Text>}
             </View>
           </View>
@@ -128,6 +130,7 @@ export function ProfileView() {
           
           <Text style={styles.menuSectionTitle}>Tài khoản</Text>
           {renderMenuItem('person', 'Thông tin cá nhân', () => NavigationService.navigate('/(main)/personal-info' as any))}
+          {renderMenuItem('wallet', 'Ví của tôi', () => NavigationService.navigate('/(main)/wallet' as any))}
           {renderMenuItem('shield', 'Đổi mật khẩu', () => NavigationService.navigate('/(main)/change-password' as any))}
           {renderMenuItem('bell', 'Thông báo', () => NavigationService.navigate(ROUTES.NOTIFICATIONS))}
           {renderMenuItem('gear', 'Cài đặt', () => NavigationService.navigate('/(main)/settings' as any))}
@@ -155,6 +158,7 @@ const styles = StyleSheet.create({
   userInfo: { flex: 1, paddingBottom: 10 },
   userName: { fontSize: UI_CONFIG.typography.sizes.xl, fontWeight: 'bold', color: UI_CONFIG.colors.text, marginBottom: 4 },
   userRole: { fontSize: UI_CONFIG.typography.sizes.md, color: UI_CONFIG.colors.primary, fontWeight: '500' },
+  userEmail: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 4 },
   userUnit: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 2 },
   statsContainer: { flexDirection: 'row', backgroundColor: UI_CONFIG.colors.background, paddingVertical: UI_CONFIG.spacing.md, marginBottom: UI_CONFIG.spacing.sm },
   statItem: { flex: 1, alignItems: 'center' },

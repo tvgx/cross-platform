@@ -4,7 +4,7 @@
     "slug": "cross-platform",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icons/icon.png",
+    "icon": "./assets/icons/aot.jpg",
     "scheme": "crossplatform",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -37,7 +37,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/icons/aot.jpg",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
