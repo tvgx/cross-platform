@@ -1,18 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { ProductListItem } from '../../types';
+import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { UI_CONFIG } from '../../constants/config';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 import { formatCurrency } from '../../lib/utils/format';
+import { useAppStore } from '../../store/app';
+import { useAuthStore } from '../../store/auth';
+import { useCatalogStore } from '../../store/catalog';
+import { useProductStore } from '../../store/product';
+import { ProductListItem } from '../../types';
 import { IconSymbol } from '../ui/icon-symbol';
 import { TacticalImage } from '../ui/TacticalImage';
-import { UI_CONFIG } from '../../constants/config';
-import { Ionicons } from '@expo/vector-icons';
-import { useCatalogStore } from '../../store/catalog';
-import { useAuthStore } from '../../store/auth';
-import { useAppStore } from '../../store/app';
-import { useProductStore } from '../../store/product';
-import * as Haptics from 'expo-haptics';
 
 interface ProductCardProps {
   item: ProductListItem;
@@ -62,6 +62,8 @@ export const ProductCard = React.memo(({ item, style }: ProductCardProps) => {
          prevProps.item.is_liked === nextProps.item.is_liked &&
          prevProps.item.like_count === nextProps.item.like_count;
 });
+
+ProductCard.displayName = 'ProductCard';
 
 const styles = StyleSheet.create({
   productCard: {

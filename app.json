@@ -4,7 +4,7 @@
     "slug": "cross-platform",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icons/aot.jpg",
+    "icon": "./assets/icons/aot.png",
     "scheme": "crossplatform",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -26,7 +26,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.trsilwi24.crossplatform"
     },
     "web": {
       "output": "static",
@@ -37,7 +38,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/icons/aot.jpg",
+          "image": "./assets/icons/aot.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -55,6 +56,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e0fca5e6-509a-4f77-b961-b1b371e4998c"
+      }
     }
   }
 }

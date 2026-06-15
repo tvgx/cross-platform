@@ -47,6 +47,8 @@ app-example
 local.env
 *.txt
 
+*.apk
+
 # Ignore data and scripts
 data/
 scripts/
