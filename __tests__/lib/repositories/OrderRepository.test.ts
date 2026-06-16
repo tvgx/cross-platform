@@ -30,7 +30,9 @@ describe('OrderRepository', () => {
     });
 
     (useNetworkStore.getState as jest.Mock).mockReturnValue({
+      isOnline: true,
       isBackendAlive: true,
+      setBackendAlive: jest.fn(),
     });
   });
 

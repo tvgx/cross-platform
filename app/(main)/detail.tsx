@@ -50,29 +50,28 @@ export default function DetailScreen() {
 
   const loadProduct = async () => {
     try {
-      const res = await productsApi.getProduct(id);
-      if (res.data) {
-        const p: any = res.data;
+      const p = await ProductRepository.getProductDetail(id, true);
+      if (p) {
         const mappedProduct: Product = {
           id: p.id,
-          title: p.name || p.title || 'Sản phẩm',
-          description: p.described || p.description || 'Chưa có mô tả',
+          title: (p as any).name || p.title || 'Sản phẩm',
+          description: (p as any).described || p.description || 'Chưa có mô tả',
           price: Number(p.price) || 0,
-          images: Array.isArray(p.image) && p.image.length > 0 ? p.image.map((i: any) => i.url || i) : p.images || [],
+          images: Array.isArray((p as any).image) && (p as any).image.length > 0 ? (p as any).image.map((i: any) => i.url || i) : p.images || [],
           video: Array.isArray(p.video) && p.video.length > 0 ? p.video[0].url || p.video[0] : p.video || '',
-          category_id: p.category?.id || p.category_id || '',
-          brand_id: p.brand?.id || p.brand_id || '',
-          seller_id: p.seller?.id || p.seller_id || '',
-          seller_name: p.seller?.fullname || p.seller?.username || p.seller_name || 'Người bán',
-          seller_avatar: p.seller?.avatar || p.seller_avatar || '',
+          category_id: (p as any).category?.id || p.category_id || '',
+          brand_id: (p as any).brand?.id || p.brand_id || '',
+          seller_id: (p as any).seller?.id || p.seller_id || '',
+          seller_name: (p as any).seller?.fullname || (p as any).seller?.username || p.seller_name || 'Người bán',
+          seller_avatar: (p as any).seller?.avatar || (p as any).seller_avatar || '',
           stock: p.stock || 0,
           sold_count: p.sold_count || 0,
           rating: p.rating || 5.0,
-          rating_count: p.rating_count || 0,
-          like_count: Number(p.like) || p.like_count || 0,
+          rating_count: (p as any).rating_count || 0,
+          like_count: Number((p as any).like) || p.like_count || 0,
           is_liked: p.is_liked || false,
-          created_at: p.created || p.created_at || new Date().toISOString(),
-          updated_at: p.updated || p.updated_at || new Date().toISOString(),
+          created_at: (p as any).created || p.created_at || new Date().toISOString(),
+          updated_at: (p as any).updated || p.updated_at || new Date().toISOString(),
         };
         setProduct(mappedProduct);
         loadRelatedProducts(mappedProduct.category_id);

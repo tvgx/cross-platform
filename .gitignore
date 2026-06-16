@@ -46,6 +46,7 @@ app-example
 
 local.env
 *.txt
+.env
 
 *.apk
 

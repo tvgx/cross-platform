@@ -367,10 +367,11 @@ export const ProductRepository = {
     user_name: string;
     content: string;
     created_at: string;
+    sync_status?: string;
   }): void {
     try {
       db.runSync(
-        `INSERT INTO Comments (id, target_id, product_id, user_id, user_name, content, sync_status, created_at) 
+        `INSERT OR REPLACE INTO Comments (id, target_id, product_id, user_id, user_name, content, sync_status, created_at) 
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           comment.id,
@@ -379,7 +380,7 @@ export const ProductRepository = {
           comment.user_id,
           comment.user_name,
           comment.content,
-          'pending_sync',
+          comment.sync_status || 'pending_sync',
           comment.created_at
         ]
       );
@@ -387,6 +388,58 @@ export const ProductRepository = {
     } catch (e) {
       console.error('[ProductRepo] Lỗi thêm bình luận dã chiến:', e);
       throw e;
+    }
+  },
+
+  queueLikeProduct(productId: string, userId: string): void {
+    try {
+      const existing = db.getFirstSync<any>(
+        "SELECT id FROM SyncQueue WHERE action = 'LIKE_PRODUCT' AND target_id = ?",
+        [productId]
+      );
+      if (existing) {
+        db.runSync('DELETE FROM SyncQueue WHERE id = ?', [existing.id]);
+        console.log(`[ProductRepo] Đã triệt tiêu task LIKE_PRODUCT trùng lặp cho sản phẩm ${productId}`);
+      } else {
+        SyncQueueRepository.addSyncTask({
+          id: `like_${userId}_${productId}_${Date.now()}`,
+          action: 'LIKE_PRODUCT',
+          target_id: productId,
+          payload: JSON.stringify({ product_id: productId, user_id: userId }),
+          priority: 1,
+        });
+      }
+    } catch (e) {
+      console.error('[ProductRepo] Lỗi đưa like vào hàng đợi đồng bộ:', e);
+    }
+  },
+
+  queueComment(comment: {
+    id: string;
+    product_id: string;
+    user_id: string;
+    user_name: string;
+    content: string;
+    created_at: string;
+  }): void {
+    try {
+      SyncQueueRepository.addSyncTask({
+        id: `comment_${comment.id}`,
+        action: 'COMMENT_POST',
+        target_id: comment.id,
+        payload: JSON.stringify(comment),
+        priority: 1,
+      });
+    } catch (e) {
+      console.error('[ProductRepo] Lỗi đưa bình luận vào hàng đợi đồng bộ:', e);
+    }
+  },
+
+  markCommentSynced(commentId: string): void {
+    try {
+      db.runSync("UPDATE Comments SET sync_status = 'synced' WHERE id = ?", [commentId]);
+    } catch (e) {
+      console.error('[ProductRepo] Lỗi đánh dấu bình luận đã đồng bộ:', e);
     }
   }
 };

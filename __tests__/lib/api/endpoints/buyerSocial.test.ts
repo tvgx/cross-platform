@@ -6,7 +6,7 @@ import { server } from '../../../../mocks/server';
 
 jest.mock('../../../../store/network', () => ({
   useNetworkStore: {
-    getState: jest.fn().mockReturnValue({ isBackendAlive: true, setBackendAlive: jest.fn() }),
+    getState: jest.fn().mockReturnValue({ isOnline: true, isBackendAlive: true, setBackendAlive: jest.fn() }),
   },
 }));
 

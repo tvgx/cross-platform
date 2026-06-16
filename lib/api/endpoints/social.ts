@@ -1,4 +1,6 @@
 import { apiCall } from '../client';
+import { ProductRepository } from '../../repositories/ProductRepository';
+import { useAuthStore } from '../../../store/auth';
 import type {
   ApiResponse,
   Comment,
@@ -10,28 +12,126 @@ import type {
 
 export const socialApi = {
   // Comments
-  getComments: (productId: string, params?: { page?: number; limit?: number }) => {
+  getComments: async (productId: string, params?: { page?: number; limit?: number }) => {
     const page = params?.page || 1;
     const limit = params?.limit || 20;
-    return apiCall<ApiResponse<PaginatedResponse<Comment>>>('POST', '/api/get_comments_product', {
-      product_id: parseInt(productId, 10),
-      index: (page - 1) * limit,
-      count: limit,
-    });
+    try {
+      const res = await apiCall<ApiResponse<PaginatedResponse<Comment>>>('POST', '/api/get_comments_product', {
+        product_id: parseInt(productId, 10),
+        index: (page - 1) * limit,
+        count: limit,
+      });
+
+      const serverItems = Array.isArray((res as any).data)
+        ? (res as any).data
+        : ((res as any).data?.items || []);
+
+      serverItems.forEach((c: any) => {
+        ProductRepository.addComment({
+          id: String(c.id || `comment_${productId}_${Date.now()}_${Math.random().toString(36).slice(2)}`),
+          product_id: String(c.product_id || productId),
+          user_id: String(c.user_id || c.poster?.id || '0'),
+          user_name: c.poster?.name || c.username || c.user_name || 'User',
+          content: c.content || '',
+          created_at: c.created_at || new Date().toISOString(),
+          sync_status: 'synced',
+        });
+      });
+
+      return res;
+    } catch (error) {
+      const localItems = ProductRepository.getComments(productId).map((c: any) => ({
+        id: c.id,
+        product_id: c.product_id,
+        user_id: c.user_id,
+        username: c.username,
+        content: c.content,
+        created_at: c.created_at,
+      }));
+
+      return {
+        success: true,
+        data: {
+          items: localItems,
+          total: localItems.length,
+          page,
+          limit,
+          has_more: false,
+        },
+      } as ApiResponse<PaginatedResponse<Comment>>;
+    }
   },
 
-  postComment: (body: { product_id: string; content: string }) =>
-    apiCall<ApiResponse<Comment>>('POST', '/api/set_comments_product', {
-      product_id: parseInt(body.product_id, 10),
+  postComment: async (body: { product_id: string; content: string }) => {
+    const user = useAuthStore.getState().user;
+    const localComment = {
+      id: `comment_${body.product_id}_${user?.id || 'guest'}_${Date.now()}`,
+      product_id: body.product_id,
+      user_id: String(user?.id || 'guest'),
+      user_name: user?.username || user?.full_name || 'User',
       content: body.content,
-      index: 0,
-      count: 20
-    }),
+      created_at: new Date().toISOString(),
+    };
 
-  likeProduct: (productId: string) =>
-    apiCall<ApiResponse<{ is_liked: boolean; like_count: number }>>('POST', '/api/like_product', {
-      product_id: parseInt(productId, 10)
-    }),
+    try {
+      const res = await apiCall<ApiResponse<Comment>>('POST', '/api/set_comments_product', {
+        product_id: parseInt(body.product_id, 10),
+        content: body.content,
+        index: 0,
+        count: 20
+      });
+
+      const serverComment: any = res.data || {};
+      ProductRepository.addComment({
+        ...localComment,
+        id: String(serverComment.id || localComment.id),
+        user_id: String(serverComment.user_id || localComment.user_id),
+        user_name: serverComment.username || serverComment.user_name || localComment.user_name,
+        created_at: serverComment.created_at || localComment.created_at,
+        sync_status: 'synced',
+      });
+
+      return res;
+    } catch (error: any) {
+      if (error?.code === 'ERR_NETWORK' || error?.code === 'ECONNABORTED' || !error?.response) {
+        ProductRepository.addComment(localComment);
+        ProductRepository.queueComment(localComment);
+        return {
+          success: true,
+          data: {
+            id: localComment.id,
+            product_id: localComment.product_id,
+            user_id: localComment.user_id,
+            username: localComment.user_name,
+            content: localComment.content,
+            created_at: localComment.created_at,
+          } as Comment,
+          message: 'Đã lưu bình luận offline, sẽ đồng bộ khi có mạng.',
+        };
+      }
+      throw error;
+    }
+  },
+
+  likeProduct: async (productId: string) => {
+    const user = useAuthStore.getState().user;
+    try {
+      const res = await apiCall<ApiResponse<{ is_liked: boolean; like_count: number }>>('POST', '/api/like_product', {
+        product_id: parseInt(productId, 10)
+      });
+
+      if (user && res.data) {
+        ProductRepository.likeProduct(productId, String(user.id), !!res.data.is_liked, Number(res.data.like_count || 0));
+      }
+
+      return res;
+    } catch (error: any) {
+      if (user && (error?.code === 'ERR_NETWORK' || error?.code === 'ECONNABORTED' || !error?.response)) {
+        ProductRepository.queueLikeProduct(productId, String(user.id));
+      }
+      throw error;
+    }
+  },
 
   reportProduct: (body: { product_id: string; reason: string }) =>
     apiCall<ApiResponse<null>>('POST', '/api/report_product', {

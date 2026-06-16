@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { zustandStorage } from '../lib/storage/mmkv';
 import type { Category, Brand, ProductListItem } from '../types';
+import { ProductRepository } from '../lib/repositories/ProductRepository';
 
 const CACHE_TTL_MS = 5 * 60 * 1_000; // 5 minutes
 
@@ -60,14 +61,15 @@ export const useCatalogStore = create<CatalogState>()(
           return { products: newProducts };
         });
 
+        ProductRepository.likeProduct(productId, userId, newIsLiked, newLikeCount);
+
         // Run API update asynchronously
         setTimeout(async () => {
           try {
             const { socialApi } = require('../lib/api/endpoints/social');
             await socialApi.likeProduct(productId);
           } catch (err) {
-            console.warn('[CatalogStore] Lỗi gọi API likeProduct', err);
-            // Revert state logic could be added here if needed
+            console.warn('[CatalogStore] Lỗi gọi API likeProduct, đã lưu local và sẽ queue nếu offline', err);
           }
         }, 0);
       },

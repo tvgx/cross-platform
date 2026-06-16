@@ -3,6 +3,7 @@ import { useNetworkStore } from '../../../store/network';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../../mocks/server';
 import { getStoredJSON, removeStored } from '../../../lib/storage/mmkv';
+import { db } from '../../../lib/storage/sqlite';
 
 // Mock dependencies
 jest.mock('../../../store/network', () => ({
@@ -23,6 +24,7 @@ describe('apiClient & apiCall', () => {
     jest.clearAllMocks();
     // Default mock implementation
     (useNetworkStore.getState as jest.Mock).mockReturnValue({
+      isOnline: true,
       isBackendAlive: true,
       checkBackendHealth: jest.fn(),
       setBackendAlive: jest.fn(),
@@ -109,6 +111,7 @@ describe('apiClient & apiCall', () => {
     it('should setBackendAlive to false on Network Error', async () => {
       const setBackendAliveMock = jest.fn();
       (useNetworkStore.getState as jest.Mock).mockReturnValue({
+        isOnline: true,
         isBackendAlive: true,
         setBackendAlive: setBackendAliveMock,
       });
@@ -140,9 +143,35 @@ describe('apiClient & apiCall', () => {
       expect((data as any).data).toBe('success data');
     });
 
+    it('should save read responses and return cached data when device is offline', async () => {
+      server.use(
+        http.get(`${BASE_URL}/cached-api-call`, () => {
+          return HttpResponse.json({ code: '1000', data: { value: 'cached data' } });
+        })
+      );
+
+      await apiCall('GET', '/cached-api-call');
+      expect(db.runSync).toHaveBeenCalledWith(
+        expect.stringContaining('ServerResponseCache'),
+        expect.arrayContaining(['GET', '/cached-api-call'])
+      );
+
+      (db.getFirstSync as jest.Mock).mockReturnValueOnce({
+        data: JSON.stringify({ code: '1000', data: { value: 'cached data' }, success: true }),
+      });
+      (useNetworkStore.getState as jest.Mock).mockReturnValue({
+        isOnline: false,
+        isBackendAlive: true,
+        checkBackendHealth: jest.fn(),
+      });
+
+      const cached = await apiCall('GET', '/cached-api-call');
+      expect((cached as any).data.value).toBe('cached data');
+    });
     it('should reject with "Local Mode Only" and ping health check if backend is dead', async () => {
       const checkBackendHealthMock = jest.fn();
       (useNetworkStore.getState as jest.Mock).mockReturnValue({
+        isOnline: true,
         isBackendAlive: false,
         checkBackendHealth: checkBackendHealthMock,
       });

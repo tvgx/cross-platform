@@ -69,15 +69,6 @@ export const useProductStore = create<ProductState>()(
           };
         });
 
-        setTimeout(async () => {
-          try {
-            const { socialApi } = require('../lib/api/endpoints/social');
-            await socialApi.likeProduct(productId);
-          } catch (err) {
-            console.warn('[ProductStore] Lỗi gọi API likeProduct', err);
-            // Revert state logic could be added here
-          }
-        }, 0);
       },
 
       fetchInitialData: async () => {

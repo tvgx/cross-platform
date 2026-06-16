@@ -2,6 +2,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useNetworkStore } from '../../store/network';
 import type { AuthTokens } from '../../types';
 import { getStoredJSON, removeStored } from '../storage/mmkv';
+import { getCachedServerResponse, saveServerResponseCache } from '../storage/serverResponseCache';
 
 // Set EXPO_PUBLIC_API_URL in your .env file.
 const BASE_URL =
@@ -13,7 +14,7 @@ export const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// ─── Request interceptor: attach Bearer token ─────────────────────────────────
+// Request interceptor: attach Bearer token
 
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
@@ -49,7 +50,7 @@ apiClient.interceptors.request.use(
   },
 );
 
-// ─── Response interceptor: handle 401 & Network Errors ─────────────────────────
+// Response interceptor: handle 401 & Network Errors
 
 apiClient.interceptors.response.use(
   (response) => {
@@ -76,13 +77,14 @@ apiClient.interceptors.response.use(
   },
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      // Token expired — clear credentials so the auth store re-hydrates
+      // Token expired - clear credentials so the auth store re-hydrates
       // and triggers a logout on next render.
       removeStored('auth_tokens');
       removeStored('auth-storage');  // zustand persist key
       console.error(`[API RESPONSE 401] Token expired or unauthorized.`);
     } else if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) {
-      // If it's a network error or timeout, log it
+      // If it's a network error or timeout, flag the backend as dead
+      useNetworkStore.getState().setBackendAlive(false);
       console.error(`[API NETWORK ERROR] Code: ${error.code}`);
     } else {
       console.error(`[API RESPONSE ERROR] Status: ${error.response?.status}, Data:`, error.response?.data);
@@ -99,7 +101,7 @@ apiClient.interceptors.response.use(
   },
 );
 
-// ─── Helper: unified API call ─────────────────────────────────────────────────
+// Helper: unified API call
 
 export async function apiCall<T>(
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
@@ -108,15 +110,34 @@ export async function apiCall<T>(
   params?: Record<string, unknown>,
 ): Promise<T> {
   const networkStore = useNetworkStore.getState();
+  const cachedResponse = () => getCachedServerResponse<T>(method, url, data, params);
 
-  if (!networkStore.isOnline) {
-    console.log(`[API Client] Device is offline (NetInfo). Falling back to Local Mode.`);
-    // Throw error so caller falls back to Local immediately
+  if (!networkStore.isOnline || !networkStore.isBackendAlive) {
+    console.log(`[API Client] Device offline or backend dead. Falling back to Local Cache.`);
+    if (!networkStore.isBackendAlive) {
+      networkStore.checkBackendHealth();
+    }
+
+    const cached = cachedResponse();
+    if (cached) return cached;
+
     const offlineError = new Error('Local Mode Only');
     (offlineError as any).code = 'ERR_NETWORK';
     return Promise.reject(offlineError);
   }
 
-  const response = await apiClient.request<T>({ method, url, data, params });
-  return response.data;
+  try {
+    const response = await apiClient.request<T>({ method, url, data, params });
+    saveServerResponseCache(method, url, data, params, response.data);
+    return response.data;
+  } catch (error: any) {
+    if (error?.code === 'ERR_NETWORK' || error?.code === 'ECONNABORTED' || !error?.response) {
+      const cached = cachedResponse();
+      if (cached) {
+        console.log(`[API Client] Returning cached response for ${method} ${url}.`);
+        return cached;
+      }
+    }
+    return Promise.reject(error);
+  }
 }

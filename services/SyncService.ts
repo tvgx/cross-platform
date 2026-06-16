@@ -7,6 +7,7 @@ import { OrderRepository } from '../lib/repositories/OrderRepository';
 import { MessageRepository } from '../lib/repositories/MessageRepository';
 import { apiCall } from '../lib/api/client';
 import { useNetworkStore } from '../store/network';
+import { db } from '../lib/storage/sqlite';
 
 
 let activeOnlineInterval: any = null;
@@ -54,6 +55,10 @@ export const SyncService = {
             success = await this.submitAppeal(task.target_id, payloadParsed);
           } else if (task.action === 'MESSAGE_SEND' || task.action === 'SEND_MESSAGE') {
             success = await this.sendMessage(task.target_id, payloadParsed);
+          } else if (task.action === 'LIKE_PRODUCT') {
+            success = await this.syncLikeProduct(task.target_id, payloadParsed);
+          } else if (task.action === 'COMMENT_POST') {
+            success = await this.syncComment(task.target_id, payloadParsed);
           }
 
           if (success) {
@@ -237,6 +242,97 @@ export const SyncService = {
     } catch (err) {
       console.error(`[Sync] Lỗi đồng bộ gửi tin nhắn ${messageId}:`, err);
       // Giữ lại task trong SyncQueue nếu là lỗi mạng để gửi lại sau
+      return false;
+    }
+  },
+
+  /**
+   * Đồng bộ lượt thích sản phẩm lên máy chủ
+   */
+  async syncLikeProduct(productId: string, payload: any) {
+    console.log(`[Sync] Đang đồng bộ lượt thích sản phẩm ${productId} lên máy chủ...`);
+    if (!payload) return true;
+
+    try {
+      const isOnline = useNetworkStore.getState().isOnline;
+      if (!isOnline) {
+        return true;
+      }
+
+      const res = await apiCall<any>('POST', '/api/like_product', {
+        product_id: parseInt(productId, 10),
+      });
+
+      if (res && res.success && res.data) {
+        const isLiked = !!res.data.is_liked;
+        const likeCount = Number(res.data.like_count || 0);
+
+        db.runSync(
+          'UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?',
+          [isLiked ? 1 : 0, likeCount, productId]
+        );
+
+        if (isLiked) {
+          const likeId = `like_${payload.user_id}_${productId}`;
+          db.runSync(
+            "INSERT OR REPLACE INTO Likes (id, product_id, user_id, sync_status) VALUES (?, ?, ?, 'synced')",
+            [likeId, productId, payload.user_id]
+          );
+        } else {
+          db.runSync(
+            'DELETE FROM Likes WHERE product_id = ? AND user_id = ?',
+            [productId, payload.user_id]
+          );
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error(`[Sync] Lỗi đồng bộ lượt thích cho sản phẩm ${productId}:`, err);
+      return false;
+    }
+  },
+
+  /**
+   * Đồng bộ bình luận lên máy chủ
+   */
+  async syncComment(commentId: string, payload: any) {
+    console.log(`[Sync] Đang đồng bộ bình luận ${commentId} lên máy chủ...`);
+    if (!payload) return true;
+
+    try {
+      const isOnline = useNetworkStore.getState().isOnline;
+      if (!isOnline) {
+        return true;
+      }
+
+      const res = await apiCall<any>('POST', '/api/set_comments_product', {
+        product_id: parseInt(payload.product_id, 10),
+        content: payload.content,
+        index: 0,
+        count: 20
+      });
+
+      if (res && res.success) {
+        const serverComment = res.data || {};
+        const newId = String(serverComment.id || commentId);
+
+        if (newId !== commentId) {
+          db.runSync(
+            "UPDATE Comments SET id = ?, sync_status = 'synced' WHERE id = ?",
+            [newId, commentId]
+          );
+        } else {
+          db.runSync(
+            "UPDATE Comments SET sync_status = 'synced' WHERE id = ?",
+            [commentId]
+          );
+        }
+        console.log(`[Sync] Đồng bộ bình luận thành công. ID cũ: ${commentId}, ID mới: ${newId}`);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error(`[Sync] Lỗi đồng bộ bình luận ${commentId}:`, err);
       return false;
     }
   },

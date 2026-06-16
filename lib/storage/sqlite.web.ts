@@ -1,9 +1,85 @@
 import * as SQLite from 'expo-sqlite';
 
-// DÃ¹ng SQLite trÃªn mÃ´i trÆ°á»ng native Android/iOS
-const localDb = SQLite.openDatabaseSync('army_db_v2.db');
+const alasql = require('alasql');
 
-export const db = localDb;
+const localDb = {
+  execSync: (sql: string) => {
+    if (sql.includes('PRAGMA')) return;
+    if (sql.includes('BEGIN TRANSACTION') || sql.includes('COMMIT') || sql.includes('ROLLBACK')) return;
+    try {
+      // Strip out SQLite specific AUTOINCREMENT and FOREIGN KEY definitions for alasql compatibility
+      let cleanedSql = sql
+        .replace(/FOREIGN KEY\s*\([^)]+\)\s*REFERENCES\s*\w+\s*\([^)]+\)(?:\s*ON\s+DELETE\s+[A-Z ]+)?/gi, '')
+        .replace(/AUTOINCREMENT/gi, 'AUTO_INCREMENT')
+        .replace(/PRIMARY KEY\s*AUTO_INCREMENT/gi, 'INT AUTO_INCREMENT PRIMARY KEY')
+        .replace(/PRIMARY KEY\s*AUTOINCREMENT/gi, 'INT AUTO_INCREMENT PRIMARY KEY')
+        .replace(/,\s*,/g, ',')
+        .replace(/,\s*\)/g, ')')
+        .replace(/\(\s*,/g, '(');
+      
+      const queries = cleanedSql.split(';').map(q => q.trim()).filter(q => q.length > 0);
+      for (const query of queries) {
+        alasql(query);
+      }
+    } catch (e: any) {
+      console.warn('[AlaSQL execSync Warning]:', e.message, 'for SQL:', sql);
+    }
+  },
+  runSync: (sql: string, params: any[] = []) => {
+    if (sql.includes('BEGIN TRANSACTION') || sql.includes('COMMIT') || sql.includes('ROLLBACK')) return { changes: 0, lastInsertRowId: 0 };
+    try {
+      let cleanedSql = sql.replace(/\bas count\b/gi, 'AS [count]');
+      
+      if (/INSERT\s+OR\s+REPLACE\s+INTO/gi.test(cleanedSql) || /REPLACE\s+INTO/gi.test(cleanedSql)) {
+        cleanedSql = cleanedSql.replace(/INSERT\s+OR\s+REPLACE\s+INTO/gi, 'INSERT INTO').replace(/REPLACE\s+INTO/gi, 'INSERT INTO');
+        
+        const tableMatch = cleanedSql.match(/INSERT\s+INTO\s+(\w+)/i);
+        if (tableMatch && tableMatch[1] && params.length > 0) {
+          const tableName = tableMatch[1];
+          const idVal = params[0];
+          try {
+            alasql(`DELETE FROM ${tableName} WHERE id = ?`, [idVal]);
+          } catch (err) {}
+        }
+      }
+      
+      alasql(cleanedSql, params);
+      return { changes: 1, lastInsertRowId: 1 };
+    } catch (e: any) {
+      console.warn('[AlaSQL runSync Warning]:', e.message, 'for SQL:', sql);
+      return { changes: 0, lastInsertRowId: 0 };
+    }
+  },
+  getFirstSync: <T>(sql: string, params: any[] = []): T | null => {
+    try {
+      let cleanedSql = sql.replace(/\bas count\b/gi, 'AS [count]');
+      const res = alasql(cleanedSql, params);
+      return res && res[0] ? (res[0] as T) : null;
+    } catch (e: any) {
+      console.warn('[AlaSQL getFirstSync Warning]:', e.message, 'for SQL:', sql);
+      return null;
+    }
+  },
+  getAllSync: <T>(sql: string, params: any[] = []): T[] => {
+    try {
+      let cleanedSql = sql.replace(/\bas count\b/gi, 'AS [count]');
+      const res = alasql(cleanedSql, params);
+      return (res || []) as T[];
+    } catch (e: any) {
+      console.warn('[AlaSQL getAllSync Warning]:', e.message, 'for SQL:', sql);
+      return [];
+    }
+  },
+  withTransactionSync: (cb: () => void) => {
+    try {
+      cb();
+    } catch (e: any) {
+      console.error('[AlaSQL withTransactionSync Error]:', e.message);
+    }
+  }
+};
+
+export const db = localDb as unknown as SQLite.SQLiteDatabase;
 
 export const initDB = () => {
   try {
@@ -147,28 +223,18 @@ export const initDB = () => {
     `);
 
     // 10. Táº¡o báº£ng Comments (BÃ¬nh luáº­n dÃ£ chiáº¿n)
-    try {
-      const fks = db.getAllSync<any>("PRAGMA foreign_key_list('Comments')");
-      const hasUserFK = fks.some((fk: any) => fk.table === 'Users');
-      if (hasUserFK) {
-        console.log('[SQLite] PhÃ¡t hiá»‡n foreign key constraint cÅ© trÃªn Comments. Tiáº¿n hÃ nh recreate báº£ng...');
-        db.execSync('DROP TABLE IF EXISTS Comments;');
-      }
-    } catch (e) {
-      console.warn('[SQLite] Lá»—i kiá»ƒm tra/migration báº£ng Comments:', e);
-    }
-
     db.execSync(`
       CREATE TABLE IF NOT EXISTS Comments (
         id TEXT PRIMARY KEY,
-        target_id TEXT,    -- Ä á»ƒ tÆ°Æ¡ng thÃ­ch ngÆ°á»£c (product_id hoáº·c post_id)
+        target_id TEXT,    -- Äá»ƒ tÆ°Æ¡ng thÃ­ch ngÆ°á»£c (product_id hoáº·c post_id)
         product_id TEXT,   -- Khá»›p vá»›i server
         user_id TEXT,
         user_name TEXT,
         content TEXT,
         sync_status TEXT DEFAULT 'pending_sync',
         created_at TEXT,
-        FOREIGN KEY (product_id) REFERENCES Products (id) ON DELETE CASCADE
+        FOREIGN KEY (product_id) REFERENCES Products (id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE
       );
     `);
 
@@ -305,9 +371,9 @@ export const initDB = () => {
       );
     `);
 
-    console.log('[SQLite] Khá»Ÿi táº¡o CSDL dÃ£ chiáº¿n thÃ nh cÃ´ng (khÃ´ng kÃ¨m dá»¯ liá»‡u giáº£).');
+    console.log('[SQLite] Khá»Ÿi táº¡o CSDL giáº£ láº­p Web (AlaSQL) thÃ nh cÃ´ng.');
   } catch (error) {
-    console.error('Lá»—i khá»Ÿi táº¡o SQLite:', error);
+    console.error('Lá»—i khá»Ÿi táº¡o SQLite Web (AlaSQL):', error);
   }
 };
 

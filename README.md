@@ -20,7 +20,15 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    ```bash
    npm run build:apk
    ```
+Chỉnh trong file .env
+- JAVA_HOME
+- ANDROID_HOME
 
+file được build xuất hiện ở
+android/app/build/outputs/apk/release/app-release.apk
+
+
+_______
 
 In the output, you'll find options to open the app in a
 
