@@ -1,3 +1,4 @@
+import { DeviceEventEmitter } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { clearFileCache } from '../lib/storage/fileSystem';
 import { SyncQueueRepository } from '../lib/repositories/SyncQueueRepository';
@@ -249,7 +250,9 @@ export const SyncService = {
         console.log('[Sync] Kênh truyền trực tuyến tốc độ cao hoạt động.');
         
         // Kích hoạt đồng bộ tức thì
-        this.runSyncProcess();
+        this.runSyncProcess().then(() => {
+          DeviceEventEmitter.emit('sync_completed');
+        });
         
         // Khởi tạo interval đồng bộ liên tục khi online (mỗi 15 giây)
         if (!activeOnlineInterval) {

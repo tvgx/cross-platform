@@ -1,23 +1,36 @@
-import { Stack } from 'expo-router';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useEffect } from 'react';
 import NetInfo from '@react-native-community/netinfo';
+import { Stack, useGlobalSearchParams, usePathname } from 'expo-router';
+import { useEffect } from 'react';
+import { DeviceEventEmitter, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { UI_CONFIG } from '../constants/config';
+import { RepositoryProvider } from '../context/RepositoryProvider';
+import { registerBackgroundSyncAsync } from '../lib/tasks/backgroundSync';
+import { SyncService } from '../services/SyncService';
+import { useAppStore } from '../store/app';
 import { useNetworkStore } from '../store/network';
 import { useSyncQueueStore } from '../store/syncQueue';
-import { registerBackgroundSyncAsync } from '../lib/tasks/backgroundSync';
-import { initDB } from '../lib/storage/sqlite';
-import { RepositoryProvider } from '../context/RepositoryProvider';
-import { SyncService } from '../services/SyncService';
 
 export default function RootLayout() {
   const setOnline = useNetworkStore((state) => state.setOnline);
+  const isDarkMode = useAppStore(state => state.isDarkMode);
+  const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('sync_completed', () => {
+      console.log('[RootLayout] Sync hoàn tất');
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     // DB is auto-initialized on module load in sqlite.ts
-    
+
     // Initialize SyncService listeners
     SyncService.init();
-    
+
     // Register background fetch task
     registerBackgroundSyncAsync();
 
@@ -57,15 +70,17 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <RepositoryProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          {/* Auth Flow */}
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          
-          {/* Main Flow (Drawer -> Tabs) */}
-          <Stack.Screen name="(main)" options={{ headerShown: false }} />
-        </Stack>
-      </RepositoryProvider>
+      <View style={{ flex: 1, backgroundColor: currentColors.background }}>
+        <RepositoryProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            {/* Auth Flow */}
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+
+            {/* Main Flow (Drawer -> Tabs) */}
+            <Stack.Screen name="(main)" options={{ headerShown: false }} />
+          </Stack>
+        </RepositoryProvider>
+      </View>
     </SafeAreaProvider>
   );
 }

@@ -12,6 +12,7 @@ import { ROUTES } from '../../lib/navigation/routes';
 import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
 import { ordersApi } from '../../lib/api/endpoints/orders';
 import { balanceApi } from '../../lib/api/endpoints/misc';
+import { useNetworkStore } from '../../store/network';
 
 export function ProfileView() {
   const user = useAuthStore(state => state.user);
@@ -23,11 +24,13 @@ export function ProfileView() {
   const [orderCount, setOrderCount] = useState(0);
   const balance = useAuthStore(state => state.balance);
 
+  const isOnline = useNetworkStore(state => state.isOnline);
+
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && isOnline) {
       loadUserData();
     }
-  }, [user?.id]);
+  }, [user?.id, isOnline]);
 
   const loadUserData = async () => {
     if (!user?.id) return;

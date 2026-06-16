@@ -82,7 +82,7 @@ export const useProductStore = create<ProductState>()(
 
       fetchInitialData: async () => {
         const { userInterestHistory } = get();
-        set({ isLoadingInitial: true, localProductCache: [], displayedProducts: [], categoryOffsets: {} });
+        set({ isLoadingInitial: true, localProductCache: [], displayedProducts: [], categoryOffsets: { 0: 0 } });
 
         try {
           // 1. Fetch categories
@@ -94,45 +94,26 @@ export const useProductStore = create<ProductState>()(
              return;
           }
 
-          // 2. Select priority categories based on history, or default to first 5
-          let targetCategoryIds: number[] = [];
+          // 2. Fetch products globally (all categories)
+          const res = await apiCall<{ data: ProductListItem[] }>('POST', '/api/get_list_products', {
+            index: 0,
+            count: 300,
+          });
+          
+          let allProducts = res.data || [];
+
+          // 3. Prioritize by user interest locally
           if (userInterestHistory.length > 0) {
-             targetCategoryIds = userInterestHistory.slice(0, 5); // Pick top 5 recent interests
-             const remaining = categories.filter(c => !targetCategoryIds.includes(Number(c.id)));
-             while (targetCategoryIds.length < 5 && remaining.length > 0) {
-               targetCategoryIds.push(Number(remaining.pop()?.id));
-             }
+            allProducts.sort((a, b) => {
+              const aInterest = userInterestHistory.indexOf(Number(a.category_id));
+              const bInterest = userInterestHistory.indexOf(Number(b.category_id));
+              const aScore = aInterest !== -1 ? userInterestHistory.length - aInterest : 0;
+              const bScore = bInterest !== -1 ? userInterestHistory.length - bInterest : 0;
+              return bScore - aScore;
+            });
           } else {
-             targetCategoryIds = categories.slice(0, 5).map(c => Number(c.id));
+            allProducts = shuffleArray(allProducts);
           }
-
-          // 3. Fetch products for each selected category
-          const countPerCat = Math.ceil(300 / targetCategoryIds.length);
-          const newOffsets: Record<number, number> = {};
-          let allProducts: ProductListItem[] = [];
-
-          const requests = targetCategoryIds.map(async (catId) => {
-            try {
-              const res = await apiCall<{ data: ProductListItem[] }>('POST', '/api/get_list_products', {
-                category_id: catId,
-                index: 0,
-                count: countPerCat,
-              });
-              const products = (res.data || []).map(p => ({ ...p, category_id: String(catId) }));
-              newOffsets[catId] = countPerCat; // Update offset for next pagination
-              return products;
-            } catch (err) {
-              console.error(`Error fetching products for category ${catId}`, err);
-              return [];
-            }
-          });
-
-          const results = await Promise.all(requests);
-          results.forEach(arr => {
-            allProducts = allProducts.concat(arr);
-          });
-
-          allProducts = shuffleArray(allProducts);
 
           // 4. Update state: Set 100 to displayed, rest to cache
           const displayed = allProducts.slice(0, 100);
@@ -142,9 +123,9 @@ export const useProductStore = create<ProductState>()(
             categories,
             localProductCache: cache,
             displayedProducts: displayed,
-            categoryOffsets: newOffsets,
+            categoryOffsets: { 0: allProducts.length }, // track global offset
             isLoadingInitial: false,
-            hasMore: allProducts.length > 0
+            hasMore: allProducts.length >= 300
           });
 
         } catch (error) {
@@ -188,51 +169,42 @@ export const useProductStore = create<ProductState>()(
       },
 
       fetchBackgroundNextPage: async () => {
-        const { categoryOffsets } = get();
-        const targetCategoryIds = Object.keys(categoryOffsets).map(Number);
+        const { categoryOffsets, userInterestHistory } = get();
+        const currentIndex = categoryOffsets[0] || 0;
         
-        if (targetCategoryIds.length === 0) {
-          set({ hasMore: false });
-          return;
-        }
-
-        const countPerCat = Math.ceil(300 / targetCategoryIds.length);
-        const newOffsets = { ...categoryOffsets };
-        let allProducts: ProductListItem[] = [];
-
-        const requests = targetCategoryIds.map(async (catId) => {
-          const currentIndex = newOffsets[catId] || 0;
-          try {
-            const res = await apiCall<{ data: ProductListItem[] }>('POST', '/api/get_list_products', {
-              category_id: catId,
-              index: currentIndex,
-              count: countPerCat,
-            });
-            const products = (res.data || []).map(p => ({ ...p, category_id: String(catId) }));
-            newOffsets[catId] = currentIndex + products.length; 
-            return products;
-          } catch (err) {
-            console.error(`Error in bg fetch for category ${catId}`, err);
-            return [];
+        try {
+          const res = await apiCall<{ data: ProductListItem[] }>('POST', '/api/get_list_products', {
+            index: currentIndex,
+            count: 300,
+          });
+          
+          let newProducts = res.data || [];
+          
+          if (newProducts.length === 0) {
+            set({ hasMore: false });
+            return;
           }
-        });
 
-        const results = await Promise.all(requests);
-        results.forEach(arr => {
-          allProducts = allProducts.concat(arr);
-        });
+          if (userInterestHistory.length > 0) {
+            newProducts.sort((a, b) => {
+              const aInterest = userInterestHistory.indexOf(Number(a.category_id));
+              const bInterest = userInterestHistory.indexOf(Number(b.category_id));
+              const aScore = aInterest !== -1 ? userInterestHistory.length - aInterest : 0;
+              const bScore = bInterest !== -1 ? userInterestHistory.length - bInterest : 0;
+              return bScore - aScore;
+            });
+          } else {
+            newProducts = shuffleArray(newProducts);
+          }
 
-        if (allProducts.length === 0) {
-          set({ hasMore: false });
-          return;
+          set((state) => ({
+            localProductCache: [...state.localProductCache, ...newProducts],
+            categoryOffsets: { 0: currentIndex + newProducts.length },
+            hasMore: newProducts.length >= 300
+          }));
+        } catch (err) {
+          console.error('Error in bg fetch', err);
         }
-
-        allProducts = shuffleArray(allProducts);
-
-        set((state) => ({
-          localProductCache: [...state.localProductCache, ...allProducts],
-          categoryOffsets: newOffsets
-        }));
       }
 
     }),

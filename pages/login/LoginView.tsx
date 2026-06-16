@@ -11,7 +11,9 @@ import { usersApi } from '../../lib/api/endpoints/users';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 import { useAuthStore } from '../../store/auth';
-
+import { useNetworkStore } from '../../store/network';
+import NetInfo from '@react-native-community/netinfo';
+import { useEffect } from 'react';
 export function LoginView() {
   const setAuth = useAuthStore((state) => state.setAuth);
   const { userRepository } = useRepositories();
@@ -19,6 +21,16 @@ export function LoginView() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      NetInfo.fetch().then(state => {
+        const isConnected = state.isConnected && state.isInternetReachable !== false;
+        useNetworkStore.getState().setOnline(!!isConnected);
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleLogin = async () => {
     if (!phoneNumber || !password) {

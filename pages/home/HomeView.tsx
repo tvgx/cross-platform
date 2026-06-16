@@ -8,6 +8,7 @@ import { UI_CONFIG } from '../../constants/config';
 import { ProductCard } from '../../components/product/ProductCard';
 import { useAppStore } from '../../store/app';
 import { useProductStore } from '../../store/product';
+import { useNetworkStore } from '../../store/network';
 
 import { useRouter } from 'expo-router';
 import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
@@ -32,9 +33,17 @@ export function HomeView() {
   const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
   const router = useRouter();
 
+  const isOnline = useNetworkStore(state => state.isOnline);
+
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    if (isOnline && displayedProducts.length === 0) {
+      fetchInitialData();
+    }
+  }, [isOnline]);
 
   const handleRefresh = useCallback(() => {
     fetchInitialData();

@@ -11,6 +11,7 @@ export default function MainDrawerLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer
+        backBehavior="history"
         drawerContent={(props) => (
           <Sidebar 
             userInfo={{
