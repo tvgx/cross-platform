@@ -1,6 +1,6 @@
 import { authApi } from '../../../../lib/api/endpoints/auth';
 import { server } from '../../../../mocks/server';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { useNetworkStore } from '../../../../store/network';
 
 jest.mock('../../../../store/network', () => ({
@@ -19,16 +19,16 @@ describe('authApi', () => {
   describe('login', () => {
     it('should login successfully', async () => {
       server.use(
-        rest.post(`${BASE_URL}/auth/login`, (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({
+        http.post(`${BASE_URL}/auth/login`, () => {
+          return HttpResponse.json(
+            {
               success: true,
               data: {
                 tokens: { access_token: 'acc_token' },
                 user: { id: 'u1', full_name: 'Soldier A' }
               }
-            })
+            },
+            { status: 200 }
           );
         })
       );
@@ -40,8 +40,8 @@ describe('authApi', () => {
 
     it('should throw error on incorrect credentials (400)', async () => {
       server.use(
-        rest.post(`${BASE_URL}/auth/login`, (req, res, ctx) => {
-          return res(ctx.status(400), ctx.json({ message: 'Sai thông tin đăng nhập' }));
+        http.post(`${BASE_URL}/auth/login`, () => {
+          return HttpResponse.json({ message: 'Sai thông tin đăng nhập' }, { status: 400 });
         })
       );
 
@@ -54,8 +54,8 @@ describe('authApi', () => {
 
     it('should handle network offline correctly', async () => {
       server.use(
-        rest.post(`${BASE_URL}/auth/login`, (req, res, ctx) => {
-          return res.networkError('Offline');
+        http.post(`${BASE_URL}/auth/login`, () => {
+          return HttpResponse.error();
         })
       );
 
@@ -70,16 +70,16 @@ describe('authApi', () => {
   describe('signup', () => {
     it('should signup successfully', async () => {
       server.use(
-        rest.post(`${BASE_URL}/auth/signup`, (req, res, ctx) => {
-          return res(
-            ctx.status(200),
-            ctx.json({
+        http.post(`${BASE_URL}/auth/signup`, () => {
+          return HttpResponse.json(
+            {
               success: true,
               data: {
                 tokens: { access_token: 'acc_token' },
                 user: { id: 'u2', full_name: 'New Soldier' }
               }
-            })
+            },
+            { status: 200 }
           );
         })
       );

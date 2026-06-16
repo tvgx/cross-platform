@@ -1,6 +1,6 @@
 import { apiClient, apiCall } from '../../../lib/api/client';
 import { useNetworkStore } from '../../../store/network';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { server } from '../../../mocks/server';
 import { getStoredJSON, removeStored } from '../../../lib/storage/mmkv';
 
@@ -38,8 +38,8 @@ describe('apiClient & apiCall', () => {
       });
 
       server.use(
-        rest.get(`${BASE_URL}/test-auth`, (req, res, ctx) => {
-          return res(ctx.json({ success: true, token: req.headers.get('Authorization') }));
+        http.get(`${BASE_URL}/test-auth`, ({ request }) => {
+          return HttpResponse.json({ success: true, token: request.headers.get('Authorization') });
         })
       );
 
@@ -54,8 +54,8 @@ describe('apiClient & apiCall', () => {
       });
 
       server.use(
-        rest.get(`${BASE_URL}/test-auth-zustand`, (req, res, ctx) => {
-          return res(ctx.json({ success: true, token: req.headers.get('Authorization') }));
+        http.get(`${BASE_URL}/test-auth-zustand`, ({ request }) => {
+          return HttpResponse.json({ success: true, token: request.headers.get('Authorization') });
         })
       );
 
@@ -67,8 +67,8 @@ describe('apiClient & apiCall', () => {
   describe('Response Interceptor', () => {
     it('should resolve if code is 1000', async () => {
       server.use(
-        rest.get(`${BASE_URL}/test-success`, (req, res, ctx) => {
-          return res(ctx.json({ code: '1000', message: 'OK' }));
+        http.get(`${BASE_URL}/test-success`, () => {
+          return HttpResponse.json({ code: '1000', message: 'OK' });
         })
       );
 
@@ -78,8 +78,8 @@ describe('apiClient & apiCall', () => {
 
     it('should reject and throw error if code is not a success code (e.g. 9999)', async () => {
       server.use(
-        rest.get(`${BASE_URL}/test-error`, (req, res, ctx) => {
-          return res(ctx.json({ code: '9999', message: 'Lỗi server' }));
+        http.get(`${BASE_URL}/test-error`, () => {
+          return HttpResponse.json({ code: '9999', message: 'Lỗi server' });
         })
       );
 
@@ -92,8 +92,8 @@ describe('apiClient & apiCall', () => {
 
     it('should call removeStored on 401 Unauthorized', async () => {
       server.use(
-        rest.get(`${BASE_URL}/test-401`, (req, res, ctx) => {
-          return res(ctx.status(401));
+        http.get(`${BASE_URL}/test-401`, () => {
+          return new HttpResponse(null, { status: 401 });
         })
       );
 
@@ -114,8 +114,8 @@ describe('apiClient & apiCall', () => {
       });
 
       server.use(
-        rest.get(`${BASE_URL}/test-network-error`, (req, res) => {
-          return res.networkError('Failed to connect');
+        http.get(`${BASE_URL}/test-network-error`, () => {
+          return HttpResponse.error();
         })
       );
 
@@ -131,8 +131,8 @@ describe('apiClient & apiCall', () => {
   describe('apiCall helper', () => {
     it('should make request if backend is alive', async () => {
       server.use(
-        rest.get(`${BASE_URL}/test-api-call`, (req, res, ctx) => {
-          return res(ctx.json({ code: '1000', data: 'success data' }));
+        http.get(`${BASE_URL}/test-api-call`, () => {
+          return HttpResponse.json({ code: '1000', data: 'success data' });
         })
       );
 

@@ -1,4 +1,4 @@
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 import { messagingApi } from '../../../../lib/api/endpoints/misc';
 import { productsApi } from '../../../../lib/api/endpoints/products';
 import { socialApi } from '../../../../lib/api/endpoints/social';
@@ -20,8 +20,8 @@ describe('Buyer Social & Products APIs', () => {
   describe('Products Metadata', () => {
     it('should get categories successfully', async () => {
       server.use(
-        rest.post(`${BASE_URL}/api/get_categories`, (req, res, ctx) => {
-          return res(ctx.status(200), ctx.json({ success: true, data: [{ id: '1', name: 'Weapons' }] }));
+        http.post(`${BASE_URL}/api/get_categories`, () => {
+          return HttpResponse.json({ success: true, data: [{ id: '1', name: 'Weapons' }] }, { status: 200 });
         })
       );
       const res = await productsApi.getCategories();
@@ -31,8 +31,8 @@ describe('Buyer Social & Products APIs', () => {
 
     it('should get list brands successfully', async () => {
       server.use(
-        rest.post(`${BASE_URL}/api/get_list_brands`, (req, res, ctx) => {
-          return res(ctx.status(200), ctx.json({ success: true, data: [{ id: '1', name: 'Armory' }] }));
+        http.post(`${BASE_URL}/api/get_list_brands`, () => {
+          return HttpResponse.json({ success: true, data: [{ id: '1', name: 'Armory' }] }, { status: 200 });
         })
       );
       const res = await productsApi.getListBrand();
@@ -44,11 +44,11 @@ describe('Buyer Social & Products APIs', () => {
   describe('Social Interactions', () => {
     it('should get comments for a product', async () => {
       server.use(
-        rest.post(`${BASE_URL}/api/get_comments_product`, (req, res, ctx) => {
-          return res(ctx.status(200), ctx.json({
+        http.post(`${BASE_URL}/api/get_comments_product`, () => {
+          return HttpResponse.json({
             success: true,
             data: { items: [{ id: '1', content: 'Great!' }], total: 1 }
-          }));
+          }, { status: 200 });
         })
       );
       const res = await socialApi.getComments('100');
@@ -58,8 +58,8 @@ describe('Buyer Social & Products APIs', () => {
 
     it('should post a comment', async () => {
       server.use(
-        rest.post(`${BASE_URL}/api/set_comments_product`, (req, res, ctx) => {
-          return res(ctx.status(200), ctx.json({ success: true, data: { id: '2', content: 'Nice' } }));
+        http.post(`${BASE_URL}/api/set_comments_product`, () => {
+          return HttpResponse.json({ success: true, data: { id: '2', content: 'Nice' } }, { status: 200 });
         })
       );
       const res = await socialApi.postComment({ product_id: '100', content: 'Nice' });
@@ -69,8 +69,8 @@ describe('Buyer Social & Products APIs', () => {
 
     it('should like a product', async () => {
       server.use(
-        rest.post(`${BASE_URL}/api/like_product`, (req, res, ctx) => {
-          return res(ctx.status(200), ctx.json({ success: true, data: { is_liked: true, like_count: 5 } }));
+        http.post(`${BASE_URL}/api/like_product`, () => {
+          return HttpResponse.json({ success: true, data: { is_liked: true, like_count: 5 } }, { status: 200 });
         })
       );
       const res = await socialApi.likeProduct('100');
@@ -83,11 +83,11 @@ describe('Buyer Social & Products APIs', () => {
   describe('Messaging', () => {
     it('should get conversation list', async () => {
       server.use(
-        rest.get(`${BASE_URL}/get_list_conversation`, (req, res, ctx) => {
-          return res(ctx.status(200), ctx.json({
+        http.get(`${BASE_URL}/get_list_conversation`, () => {
+          return HttpResponse.json({
             success: true,
             data: { items: [{ id: 'c1', unread_count: 0 }], total: 1 }
-          }));
+          }, { status: 200 });
         })
       );
       const res = await messagingApi.getConversationList();

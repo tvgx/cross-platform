@@ -3,7 +3,7 @@ import { db } from '../../../lib/storage/sqlite';
 import { useAuthStore } from '../../../store/auth';
 import { useNetworkStore } from '../../../store/network';
 import { server } from '../../../mocks/server';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 
 // Mock Dependencies
 jest.mock('../../../store/auth', () => ({
@@ -56,8 +56,8 @@ describe('OrderRepository', () => {
       (db.getFirstSync as jest.Mock).mockReturnValue({ balance: 100000 });
 
       server.use(
-        rest.post(`${BASE_URL}/order/create_order`, (req, res, ctx) => {
-          return res(ctx.json({ code: '1000', success: true }));
+        http.post(`${BASE_URL}/order/create_order`, () => {
+          return HttpResponse.json({ code: '1000', success: true });
         })
       );
 
@@ -68,7 +68,7 @@ describe('OrderRepository', () => {
 
       expect(res.success).toBe(true);
       expect(db.withTransactionSync).toHaveBeenCalled();
-      
+
       // Ensure the INSERT into Orders works correctly
       expect(db.runSync).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO Orders'),
@@ -88,8 +88,8 @@ describe('OrderRepository', () => {
       (db.getFirstSync as jest.Mock).mockReturnValue({ balance: 100000 });
 
       server.use(
-        rest.post(`${BASE_URL}/order/create_order`, (req, res, ctx) => {
-          return res.networkError('Offline');
+        http.post(`${BASE_URL}/order/create_order`, () => {
+          return HttpResponse.error();
         })
       );
 
@@ -100,7 +100,7 @@ describe('OrderRepository', () => {
 
       // Vẫn báo thành công cho user
       expect(res.success).toBe(true);
-      
+
       expect(db.runSync).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO Orders'),
         expect.arrayContaining(['pending_sync', 'pending_sync']) // Status should be pending_sync
@@ -117,8 +117,8 @@ describe('OrderRepository', () => {
       (db.getFirstSync as jest.Mock).mockReturnValue({ balance: 100000 });
 
       server.use(
-        rest.post(`${BASE_URL}/order/create_order`, (req, res, ctx) => {
-          return res(ctx.status(400), ctx.json({ message: 'Sản phẩm đã hết hàng' }));
+        http.post(`${BASE_URL}/order/create_order`, () => {
+          return HttpResponse.json({ message: 'Sản phẩm đã hết hàng' }, { status: 400 });
         })
       );
 
@@ -129,7 +129,7 @@ describe('OrderRepository', () => {
 
       expect(res.success).toBe(false);
       expect(res.message).toBe('Sản phẩm đã hết hàng');
-      
+
       // Không ghi vào local database
       expect(db.withTransactionSync).not.toHaveBeenCalled();
     });

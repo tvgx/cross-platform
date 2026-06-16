@@ -2,7 +2,7 @@ import { ProductRepository } from '../../../lib/repositories/ProductRepository';
 import { db } from '../../../lib/storage/sqlite';
 import { useCatalogStore } from '../../../store/catalog';
 import { server } from '../../../mocks/server';
-import { rest } from 'msw';
+import { http, HttpResponse } from 'msw';
 
 // Mock DB và Store
 jest.mock('../../../store/catalog', () => ({
@@ -16,7 +16,7 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.example.com/v1'
 describe('ProductRepository', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     // Default catalog store mock
     (useCatalogStore.getState as jest.Mock).mockReturnValue({
       isStale: jest.fn().mockReturnValue(true), // Giả lập dữ liệu cũ, cần gọi API
@@ -40,7 +40,7 @@ describe('ProductRepository', () => {
 
       // Kiểm tra xem db.runSync (hay transaction) đã được gọi để lưu sản phẩm chưa
       expect(db.withTransactionSync).toHaveBeenCalled();
-      
+
       // Kiểm tra dữ liệu trả về từ (mocked) SQLite
       expect(products).toHaveLength(1);
       expect(products[0].id).toBe('1');
@@ -53,18 +53,18 @@ describe('ProductRepository', () => {
 
       // Mock API detail
       server.use(
-        rest.post(`${BASE_URL}/api/get_products`, (req, res, ctx) => {
-          return res(ctx.json({
+        http.post(`${BASE_URL}/api/get_products`, () => {
+          return HttpResponse.json({
             code: '1000',
             message: 'OK',
             data: { id: '99', name: 'Detail Product', price: '500' },
             success: true
-          }));
+          });
         })
       );
 
       const product = await ProductRepository.getProductDetail('99');
-      
+
       expect(db.runSync).toHaveBeenCalledWith(
         expect.stringContaining('INSERT OR REPLACE INTO Products'),
         expect.arrayContaining(['99', 'Detail Product', 500])
@@ -78,8 +78,8 @@ describe('ProductRepository', () => {
     it('should catch API error and fallback to SQLite data', async () => {
       // Ép API lỗi 500
       server.use(
-        rest.post(`${BASE_URL}/api/get_list_products`, (req, res, ctx) => {
-          return res(ctx.status(500));
+        http.post(`${BASE_URL}/api/get_list_products`, () => {
+          return new HttpResponse(null, { status: 500 });
         })
       );
 
@@ -89,7 +89,7 @@ describe('ProductRepository', () => {
       ]);
 
       const products = await ProductRepository.getProducts();
-      
+
       // Test fallback thành công
       expect(products).toHaveLength(1);
       expect(products[0].id).toBe('offline_1');
@@ -98,8 +98,8 @@ describe('ProductRepository', () => {
     it('should fallback to SQLite when getting product detail fails', async () => {
       // Ép API lỗi 500
       server.use(
-        rest.post(`${BASE_URL}/api/get_products`, (req, res, ctx) => {
-          return res(ctx.status(500));
+        http.post(`${BASE_URL}/api/get_products`, () => {
+          return new HttpResponse(null, { status: 500 });
         })
       );
 
@@ -119,12 +119,12 @@ describe('ProductRepository', () => {
   describe('Edge Cases', () => {
     it('should handle API returning malformed data gracefully', async () => {
       server.use(
-        rest.post(`${BASE_URL}/api/get_list_products`, (req, res, ctx) => {
-          return res(ctx.json({
+        http.post(`${BASE_URL}/api/get_list_products`, () => {
+          return HttpResponse.json({
             code: '1000',
             success: true,
             data: null // Malformed: data là null thay vì mảng
-          }));
+          });
         })
       );
 

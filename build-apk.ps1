@@ -1,5 +1,5 @@
 # Script tự động build APK cục bộ sử dụng JDK và SDK tùy chỉnh đã cấu hình
-$env:JAVA_HOME="C:\Program Files\Unity\Hub\Editor\6000.4.0f1\Editor\Data\PlaybackEngines\AndroidPlayer\OpenJDK"
+$env:JAVA_HOME="C:\Users\Admin\AppData\Local\Programs\Eclipse Adoptium\jdk-25.0.3.9-hotspot"
 $env:ANDROID_HOME="C:\Users\36\AndroidSDK"
 
 Write-Host "=== Bắt đầu quá trình Build APK ===" -ForegroundColor Cyan
