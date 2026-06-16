@@ -38,17 +38,24 @@ export default function RootLayout() {
     const { useAuthStore } = require('../store/auth');
     const { isLoggedIn, user, setAuth } = useAuthStore.getState();
     if (isLoggedIn && user) {
-      const { apiCall } = require('../lib/api/client');
-      apiCall('GET', '/get-test-token')
-        .then((token: any) => {
-          if (token && typeof token === 'string') {
-            setAuth(user, { access_token: token });
-            console.log('[Auth] Tự động làm mới JWT Test Token thành công khi khởi động!');
-          }
-        })
-        .catch((err: any) => {
-          console.log('[Auth] Không thể làm mới JWT Test Token khi khởi động (Chế độ Ngoại tuyến):', err.message);
-        });
+      NetInfo.fetch().then(netState => {
+        const isConnected = netState.isConnected && netState.isInternetReachable !== false;
+        if (!isConnected) {
+          console.log('[Auth] Bỏ qua làm mới JWT Test Token khi khởi động (thiết bị ngoại tuyến).');
+          return;
+        }
+        const { apiCall } = require('../lib/api/client');
+        apiCall('GET', '/get-test-token')
+          .then((token: any) => {
+            if (token && typeof token === 'string') {
+              setAuth(user, { access_token: token });
+              console.log('[Auth] Tự động làm mới JWT Test Token thành công khi khởi động!');
+            }
+          })
+          .catch((err: any) => {
+            console.log('[Auth] Không thể làm mới JWT Test Token khi khởi động:', err.message);
+          });
+      });
     }
 
     // Listen to network changes

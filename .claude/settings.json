@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(git pull *)",
+      "Bash(cd \"d:\\\\Xuan\\\\20252\\\\cross-platform\" && rm babel.config.js.local.bak .claude/settings.json.local.bak)"
+    ],
+    "additionalDirectories": [
+      "d:\\Xuan\\20252\\cross-platform\\.claude"
     ]
   }
 }
