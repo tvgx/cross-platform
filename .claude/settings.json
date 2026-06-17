@@ -3,7 +3,10 @@
     "allow": [
       "Bash(npm install *)",
       "Bash(git pull *)",
-      "Bash(cd \"d:\\\\Xuan\\\\20252\\\\cross-platform\" && rm babel.config.js.local.bak .claude/settings.json.local.bak)"
+      "Bash(cd \"d:\\\\Xuan\\\\20252\\\\cross-platform\" && rm babel.config.js.local.bak .claude/settings.json.local.bak)",
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\(JSON.stringify\\(p.jest,null,2\\)\\); console.log\\('---scripts---'\\); console.log\\(JSON.stringify\\(p.scripts,null,2\\)\\);\")"
     ],
     "additionalDirectories": [
       "d:\\Xuan\\20252\\cross-platform\\.claude"

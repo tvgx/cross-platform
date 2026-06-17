@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Ionicons } from '@expo/vector-icons';
 import { useCheckoutStore } from '../../store/checkout';
+import { validatePhone } from '../../lib/utils/validators';
+import { LocationPicker, LocationItem } from '../../components/ui/LocationPicker';
 
 export default function AddressAddScreen() {
   const router = useRouter();
@@ -18,21 +20,26 @@ export default function AddressAddScreen() {
   const [phone, setPhone] = useState('');
   const [addressDetail, setAddressDetail] = useState('');
 
-  const [provinceName, setProvinceName] = useState('');
-  const [wardName, setWardName] = useState('');
+  const [province, setProvince] = useState<LocationItem | null>(null);
+  const [ward, setWard] = useState<LocationItem | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSave = async () => {
-    if (!receiverName || !phone || !addressDetail || !provinceName || !wardName) {
-      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin.');
+    if (!receiverName || !phone || !addressDetail || !province || !ward) {
+      Alert.alert('Lỗi', 'Vui lòng điền đầy đủ thông tin và chọn Tỉnh/Phường.');
+      return;
+    }
+    const phoneCheck = validatePhone(phone);
+    if (!phoneCheck.ok) {
+      Alert.alert('Lỗi', phoneCheck.message!);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const fullAddress = `${addressDetail}, ${wardName}, ${provinceName}`;
-      
+      const fullAddress = `${addressDetail}, ${ward.name}, ${province.name}`;
+
       const body = {
         receiver_name: receiverName,
         phone,
@@ -42,7 +49,8 @@ export default function AddressAddScreen() {
         is_default: false,
         lat: 0,
         lng: 0,
-        address_id: []
+        // address_id là mảng id vị trí theo AddOrderAddressDto: [tỉnh, phường].
+        address_id: [province.id, ward.id],
       };
 
       const res = await ordersApi.addOrderAddress(body);
@@ -79,23 +87,17 @@ export default function AddressAddScreen() {
         />
 
         <Text style={[styles.label, { marginTop: 16 }]}>Địa chỉ</Text>
-        
-        <Input 
-          placeholder="Tỉnh/Thành phố" 
-          value={provinceName} 
-          onChangeText={setProvinceName} 
+
+        <LocationPicker
+          province={province}
+          ward={ward}
+          onChange={(p, w) => { setProvince(p); setWard(w); }}
         />
 
-        <Input 
-          placeholder="Phường/Xã, Quận/Huyện" 
-          value={wardName} 
-          onChangeText={setWardName} 
-        />
-
-        <Input 
-          placeholder="Tên đường, Tòa nhà, Số nhà" 
-          value={addressDetail} 
-          onChangeText={setAddressDetail} 
+        <Input
+          placeholder="Tên đường, Tòa nhà, Số nhà"
+          value={addressDetail}
+          onChangeText={setAddressDetail}
         />
       </ScrollView>
 

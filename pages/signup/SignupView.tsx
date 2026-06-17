@@ -9,6 +9,8 @@ import { authApi } from '../../lib/api/endpoints/auth';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 import { useAuthStore } from '../../store/auth';
+import { validatePhone, validatePassword, firstError } from '../../lib/utils/validators';
+import { getAuthErrorMessage } from '../../lib/helpers/errorMapper';
 
 export function SignupView() {
   const { userRepository } = useRepositories();
@@ -20,16 +22,17 @@ export function SignupView() {
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!phonenumber || !password || !confirmPassword) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ số điện thoại và mật khẩu.');
+    const check = firstError(validatePhone(phonenumber), validatePassword(password));
+    if (!check.ok) {
+      Alert.alert('Lỗi', check.message!);
       return;
     }
     if (password !== confirmPassword) {
       Alert.alert('Lỗi', 'Mật khẩu xác nhận không khớp.');
       return;
     }
-    if (password.length < 6) {
-      Alert.alert('Lỗi', 'Mật khẩu phải chứa ít nhất 6 ký tự.');
+    if (password === phonenumber) {
+      Alert.alert('Lỗi', 'Mật khẩu không được trùng với số điện thoại.');
       return;
     }
 
@@ -47,8 +50,15 @@ export function SignupView() {
       console.log('[Signup] Đang gọi API đăng ký tối giản...', signupBody);
       const res = await authApi.signup(signupBody);
 
-      if (res && (res.success || (res as any).code === '1000' || res.data)) {
-        const { tokens, user } = res.data;
+      if (res && (res.success || (res as any).code === '1000' || (res as any).data)) {
+        // Fallback for flat response structure
+        const dataPayload = (res as any).data || res;
+        const { tokens, user } = dataPayload;
+
+        if (!user || !user.id) {
+          throw new Error('Cấu trúc dữ liệu đăng ký trả về không hợp lệ (thiếu user.id)');
+        }
+
         console.log('[Signup] Đăng ký thành công từ server. User ID:', user.id);
 
         // Lưu thông tin người dùng cục bộ vào SQLite để tác chiến ngoại tuyến
@@ -73,21 +83,22 @@ export function SignupView() {
         Alert.alert('Đăng ký thất bại', errMsg);
       }
     } catch (err: any) {
-      console.log('[Signup] Mạng lỗi hoặc server từ chối:', err);
-      setLoading(false);
-
       const isNetworkError = err.message === 'Local Mode Only' || err.code === 'ERR_NETWORK' || err.code === 'ECONNABORTED';
 
       if (isNetworkError) {
+        console.log('[Signup] Mạng lỗi thực sự (Axios Network Error):', err.message);
+        setLoading(false);
         Alert.alert('Lỗi kết nối mạng', 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet của bạn.');
       } else {
-        let errMsg = err.message || 'Không thể đăng ký tài khoản lúc này.';
-        if (err.response?.data?.message) {
-          errMsg = err.response.data.message;
-        } else if (err.response?.status) {
-          if (err.response.status === 400) errMsg = 'Dữ liệu đăng ký không hợp lệ.';
-          else if (err.response.status === 9996) errMsg = 'Số điện thoại này đã được đăng ký.';
-          else if (err.response.status >= 500) errMsg = 'Lỗi máy chủ. Vui lòng thử lại sau.';
+        console.log('[Signup] Lỗi xử lý dữ liệu hoặc server từ chối:', err.message || err);
+        setLoading(false);
+        // Map mã server sang tiếng Việt thân thiện, KHÔNG hiển thị text thô của server.
+        const serverCode = err.serverCode ?? err.response?.data?.code;
+        let errMsg = getAuthErrorMessage(serverCode, 'Không thể đăng ký tài khoản. Vui lòng kiểm tra lại thông tin.');
+        if (serverCode === undefined || serverCode === null) {
+          const status = err.response?.status;
+          if (status === 400) errMsg = 'Dữ liệu đăng ký không hợp lệ.';
+          else if (status >= 500) errMsg = 'Lỗi máy chủ. Vui lòng thử lại sau.';
         }
         Alert.alert('Đăng ký thất bại', errMsg);
       }

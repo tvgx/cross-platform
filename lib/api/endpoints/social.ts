@@ -151,8 +151,14 @@ export const socialApi = {
     });
   },
 
-  setRating: (body: { product_id: string; order_id: string; score: number; comment?: string; images?: string[] }) =>
-    apiCall<ApiResponse<Rating>>('POST', '/api/set_rates', body),
+  setRating: (body: { user_id: string | number; score: number; comment?: string; product_id?: string; purchase_id?: string }) =>
+    apiCall<ApiResponse<Rating>>('POST', '/api/set_rates', {
+      user_id: typeof body.user_id === 'string' ? parseInt(body.user_id, 10) : body.user_id,
+      level: body.score,
+      content: body.comment ?? '',
+      ...(body.product_id ? { product_id: parseInt(body.product_id, 10) } : {}),
+      ...(body.purchase_id ? { purchase_id: parseInt(body.purchase_id, 10) } : {}),
+    }),
 
   // Search
   search: (params: { q: string; category_id?: string; page?: number; limit?: number }) => {

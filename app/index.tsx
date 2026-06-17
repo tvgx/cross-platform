@@ -24,7 +24,13 @@ export default function Index() {
     return <Redirect href={"/(auth)/welcome" as Href} />;
   }
 
-  if (user?.rank === 'officer' || user?.rank === 'admin' || user?.rank === 'Sĩ quan') {
+  // Server có thể trả vai trò qua `role` (soldier/officer/vendor) hoặc `rank`.
+  const role = (user as any)?.role;
+  const rank = user?.rank;
+  const isOfficer =
+    rank === 'officer' || rank === 'admin' || rank === 'Sĩ quan' ||
+    role === 'officer' || role === 'admin';
+  if (isOfficer) {
     return <Redirect href={"/(main)/officer" as Href} />;
   }
 

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { SafeArea } from '../../components/layout/SafeArea';
@@ -10,12 +11,13 @@ import { ProductListItem } from '../../types';
 import { useCatalogStore } from '../../store/catalog';
 
 export function AllProductsView() {
+  const params = useLocalSearchParams<{ q?: string }>();
   const storeProducts = useCatalogStore(state => state.products);
   const [productsList, setProductsList] = useState<ProductListItem[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<ProductListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(typeof params.q === 'string' ? params.q : '');
   const [sortBy, setSortBy] = useState<'price_asc' | 'price_desc' | 'name_asc'>('name_asc');
 
   const removeTones = (str: string) => {

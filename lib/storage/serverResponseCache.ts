@@ -9,8 +9,7 @@ const READ_PATH_MARKERS = [
   '/News',
   '/wallets/get',
   '/push_settings/get',
-  '/order/provinces',
-  '/order/wards',
+  '/order/get_ship_from',
 ];
 
 const MUTATION_PATH_MARKERS = [

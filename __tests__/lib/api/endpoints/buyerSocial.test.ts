@@ -83,8 +83,9 @@ describe('Buyer Social & Products APIs', () => {
   describe('Messaging', () => {
     it('should get conversation list', async () => {
       server.use(
-        http.get(`${BASE_URL}/get_list_conversation`, () => {
+        http.post(`${BASE_URL}/conversation/get_list_conversation`, () => {
           return HttpResponse.json({
+            code: '1000',
             success: true,
             data: { items: [{ id: 'c1', unread_count: 0 }], total: 1 }
           }, { status: 200 });

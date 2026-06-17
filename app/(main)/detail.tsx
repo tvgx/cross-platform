@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
@@ -19,8 +19,11 @@ import { useCatalogStore } from '../../store/catalog';
 import { Product, ProductListItem } from '../../types';
 import { productsApi } from '../../lib/api/endpoints/products';
 import { socialApi } from '../../lib/api/endpoints/social';
+import { ProductRepository } from '../../lib/repositories/ProductRepository';
+import { ProductHelper } from '../../lib/helpers/ProductHelper';
 import { ProductCard } from '../../components/product/ProductCard';
-
+import { SellerInfoCard } from '../../components/seller/SellerInfoCard';
+import { usersApi } from '../../lib/api/endpoints/users';
 export default function DetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,11 +32,38 @@ export default function DetailScreen() {
   const [newComment, setNewComment] = useState('');
   const [relatedProducts, setRelatedProducts] = useState<ProductListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCommenting, setIsCommenting] = useState(false);
+  // Chống double-tap cho các hành động điều hướng/ghi giỏ.
+  const lastBuyRef = useRef(0);
+  const lastCartRef = useRef(0);
 
   const addItem = useCartStore(state => state.addItem);
   const user = useAuthStore(state => state.user);
   const toggleLikeLocally = useProductStore(state => state.toggleLikeLocally);
   const catalogToggleLike = useCatalogStore(state => state.toggleLike);
+
+  const handlePressSeller = async () => {
+    if (!product?.seller_id) return;
+    try {
+      setIsLoading(true);
+      const res = await usersApi.getUserInfo(product.seller_id);
+      setIsLoading(false);
+      
+      if (!res.success) {
+        Alert.alert('Thông báo', res.message || 'Tài khoản không tồn tại');
+        return;
+      }
+      
+      // Chuyển hướng sang trang seller, pass data cơ bản qua query params để hiển thị nhanh nếu cần
+      router.push({
+        pathname: '/(main)/seller/[id]',
+        params: { id: product.seller_id }
+      } as any);
+    } catch (error: any) {
+      setIsLoading(false);
+      Alert.alert('Lỗi', error.message || 'Lỗi kết nối mạng, vui lòng thử lại');
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -118,18 +148,20 @@ export default function DetailScreen() {
   };
 
   const handleAddToCart = () => {
-    if (product) {
-      addItem({
-        product_id: product.id,
-        title: product.title,
-        price: Number(product.price),
-        image: product.images?.[0] || undefined,
-        quantity: 1,
-        seller_id: product.seller_id,
-        seller_name: product.seller_name
-      });
-      Alert.alert('Thành công', 'Đã thêm vào giỏ hàng');
-    }
+    if (!product) return;
+    const now = Date.now();
+    if (now - lastCartRef.current < 1000) return; // chặn nhấn liên tục
+    lastCartRef.current = now;
+    addItem({
+      product_id: product.id,
+      title: product.title,
+      price: Number(product.price),
+      image: product.images?.[0] || undefined,
+      quantity: 1,
+      seller_id: product.seller_id,
+      seller_name: product.seller_name
+    });
+    Alert.alert('Thành công', 'Đã thêm vào giỏ hàng');
   };
 
   const handleToggleLike = () => {
@@ -153,19 +185,34 @@ export default function DetailScreen() {
   };
 
   const handleAddComment = async () => {
-    if (!newComment.trim() || !user || !product) return;
+    if (!product) return;
+    if (!user) {
+      Alert.alert('Thông báo', 'Vui lòng đăng nhập để bình luận');
+      return;
+    }
+    if (!ProductHelper.validateCommentContent(newComment)) {
+      Alert.alert('Lỗi', 'Bình luận phải từ 2 đến 1000 ký tự.');
+      return;
+    }
+    if (isCommenting) return;
+    setIsCommenting(true);
     try {
       await socialApi.postComment({ product_id: product.id.toString(), content: newComment });
       setNewComment('');
       loadComments();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding comment:', err);
-      Alert.alert('Lỗi', 'Không thể thêm bình luận');
+      Alert.alert('Lỗi', err?.message || 'Không thể thêm bình luận');
+    } finally {
+      setIsCommenting(false);
     }
   };
 
   const handleBuyNow = () => {
     if (!product) return;
+    const now = Date.now();
+    if (now - lastBuyRef.current < 1500) return; // chặn double-tap điều hướng
+    lastBuyRef.current = now;
     const checkoutItem = {
       id: Math.random().toString(36).slice(2) + Date.now().toString(36),
       product_id: product.id,
@@ -245,6 +292,19 @@ export default function DetailScreen() {
           </View>
         </View>
 
+        {/* Thông tin người bán */}
+        {product.seller_id && (
+          <SellerInfoCard 
+            sellerId={product.seller_id}
+            sellerName={product.seller_name}
+            sellerAvatar={product.seller_avatar}
+            onPressSeller={handlePressSeller}
+            onPressFollow={() => Alert.alert('Tính năng đang phát triển')}
+            onPressChat={() => Alert.alert('Tính năng đang phát triển')}
+            onPressViewShop={() => router.push({ pathname: '/(main)/shop/[id]', params: { id: product.seller_id } } as any)}
+          />
+        )}
+
         {/* Sản phẩm liên quan */}
         {relatedProducts.length > 0 && (
           <View style={styles.relatedSection}>
@@ -266,7 +326,7 @@ export default function DetailScreen() {
             <View style={{ flex: 1 }}>
               <Input placeholder="Viết bình luận..." value={newComment} onChangeText={setNewComment} />
             </View>
-            <Button text="Gửi" onPress={handleAddComment} style={{ paddingHorizontal: 15, marginLeft: 10, height: 48 }} />
+            <Button text={isCommenting ? '...' : 'Gửi'} onPress={handleAddComment} disabled={isCommenting} style={{ paddingHorizontal: 15, marginLeft: 10, height: 48 }} />
           </View>
 
           <Comments comments={comments} />

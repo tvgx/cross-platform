@@ -1,17 +1,36 @@
 import { db } from '../storage/sqlite';
 
+// Số lần thử lại tối đa cho một tác vụ đồng bộ trước khi ngừng (tránh retry vô hạn).
+export const MAX_SYNC_RETRY = 5;
+
 export const SyncQueueRepository = {
   /**
    * Lấy danh sách hàng đợi đồng bộ hóa dã chiến xếp theo thứ tự độ ưu tiên giảm dần.
+   * Chỉ lấy các tác vụ chưa vượt quá ngưỡng retry để tránh quay vòng vô hạn.
    */
   getPendingTasks(limit = 10): any[] {
     try {
       return db.getAllSync<any>(
-        'SELECT * FROM SyncQueue ORDER BY priority DESC, created_at ASC LIMIT ?',
-        [limit]
+        'SELECT * FROM SyncQueue WHERE retry_count < ? ORDER BY priority DESC, created_at ASC LIMIT ?',
+        [MAX_SYNC_RETRY, limit]
       );
     } catch (e) {
       console.error('[SyncQueueRepo] Lỗi lấy tác vụ hàng đợi:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Lấy các tác vụ đã vượt ngưỡng retry (để hiển thị/dọn dẹp ở tầng UI nếu cần).
+   */
+  getDeadTasks(): any[] {
+    try {
+      return db.getAllSync<any>(
+        'SELECT * FROM SyncQueue WHERE retry_count >= ? ORDER BY created_at ASC',
+        [MAX_SYNC_RETRY]
+      );
+    } catch (e) {
+      console.error('[SyncQueueRepo] Lỗi lấy tác vụ quá hạn retry:', e);
       return [];
     }
   },

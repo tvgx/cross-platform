@@ -78,17 +78,34 @@ describe('apiClient & apiCall', () => {
       expect(response.data.success).toBe(true);
     });
 
-    it('should reject and throw error if code is not a success code (e.g. 9999)', async () => {
+    it('should reject with the mapped VN message for a known code, ignoring raw server text', async () => {
       server.use(
         http.get(`${BASE_URL}/test-error`, () => {
           return HttpResponse.json({ code: '9999', message: 'Lỗi server' });
         })
       );
 
+      expect.assertions(1);
       try {
         await apiClient.get('/test-error');
       } catch (e: any) {
-        expect(e.message).toBe('Lỗi server');
+        // Mã 9999 đã biết → ưu tiên bảng tiếng Việt, KHÔNG hiển thị text thô của server.
+        expect(e.message).toBe('Lỗi hệ thống. Vui lòng thử lại sau.');
+      }
+    });
+
+    it('should fall back to the raw server message for an unknown code', async () => {
+      server.use(
+        http.get(`${BASE_URL}/test-unknown-code`, () => {
+          return HttpResponse.json({ code: '4242', message: 'Thông báo lạ từ server' });
+        })
+      );
+
+      expect.assertions(1);
+      try {
+        await apiClient.get('/test-unknown-code');
+      } catch (e: any) {
+        expect(e.message).toBe('Thông báo lạ từ server');
       }
     });
 

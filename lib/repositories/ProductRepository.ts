@@ -1,5 +1,6 @@
 import NetInfo from '@react-native-community/netinfo';
 import { db } from '../storage/sqlite';
+import { SyncQueueRepository } from './SyncQueueRepository';
 import { productsApi, ProductFilters } from '../api/endpoints/products';
 import { useCatalogStore } from '../../store/catalog';
 import { useNetworkStore } from '../../store/network';
@@ -39,6 +40,27 @@ export const ProductRepository = {
     }
   },
 
+  async searchProducts(keyword: string, filters: Omit<ProductFilters, 'keyword'>, page: number, forceRefresh = false): Promise<ProductListItem[]> {
+    const limit = filters.limit || 20;
+    const mergedFilters: ProductFilters = { ...filters, keyword, page, limit };
+    
+    try {
+      const catalogStore = useCatalogStore.getState();
+      if (forceRefresh || catalogStore.isStale()) {
+        try {
+          await this.fetchAndSyncProducts(mergedFilters);
+        } catch (e) {
+          console.warn('[ProductRepo] Lỗi tải search từ Server (Offline/Error), fallback về SQLite:', e);
+        }
+      }
+      
+      return this.getLocalProducts(mergedFilters);
+    } catch (error) {
+      console.error('[ProductRepo] Lỗi trong searchProducts:', error);
+      return this.getLocalProducts(mergedFilters);
+    }
+  },
+
   /**
    * Đọc danh sách sản phẩm trực tiếp từ bảng Products trong SQLite.
    */
@@ -55,6 +77,19 @@ export const ProductRepository = {
       if (filters?.brand_id) {
         clauses.push('brand_id = ?');
         params.push(filters.brand_id);
+      }
+      if (filters?.keyword) {
+        clauses.push('(title LIKE ? OR name LIKE ?)');
+        const kw = `%${filters.keyword}%`;
+        params.push(kw, kw);
+      }
+      if (filters?.min_price !== undefined) {
+        clauses.push('price >= ?');
+        params.push(filters.min_price);
+      }
+      if (filters?.max_price !== undefined) {
+        clauses.push('price <= ?');
+        params.push(filters.max_price);
       }
 
       if (clauses.length > 0) {
@@ -302,11 +337,91 @@ export const ProductRepository = {
   },
 
   /**
-   * Cập nhật lượt thích sản phẩm của người dùng và lưu vào SQLite Likes.
+   * Ghi MỘT hàng Products vào SQLite (INSERT OR IGNORE — giữ nguyên dữ liệu cục bộ nếu đã có).
+   * KHÔNG tự mở transaction để có thể tái dùng bên trong transaction khác.
    */
-  likeProduct(productId: string, userId: string, isLiked: boolean, likeCount: number): void {
+  _insertProductRow(p: any): void {
+    if (!p || p.id === undefined || p.id === null) return;
+    db.runSync(
+      `INSERT OR IGNORE INTO Products
+      (id, seller_id, category_id, brand_id, title, description, price, price_new, images, video, stock, is_stock, sold_count, rating, like_count, comment, is_liked, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        String(p.id),
+        p.seller_id ? String(p.seller_id) : '1',
+        p.category_id ? String(p.category_id) : '1',
+        p.brand_id ? String(p.brand_id) : 'b1',
+        p.title || p.name || 'Không có tên',
+        p.description || '',
+        Number(p.price) || 0,
+        Number(p.price_new) || 0,
+        p.images || p.image || null,
+        p.video || null,
+        p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
+        p.is_stock ? 1 : 0,
+        p.sold_count || 0,
+        p.rating || 5.0,
+        p.like_count ?? p.like ?? 0,
+        p.comment || 0,
+        (p.is_liked === true || p.is_liked === 1 || p.is_liked === '1') ? 1 : 0,
+        p.created_at || new Date().toISOString(),
+      ]
+    );
+  },
+
+  /**
+   * Write-through: lưu danh sách sản phẩm server vào SQLite Products để đảm bảo
+   * "một nguồn sự thật" và để các FK (Likes/Comments…) luôn có hàng đích.
+   * Dùng INSERT OR IGNORE nên KHÔNG ghi đè trạng thái like/comment cục bộ đã có.
+   */
+  cacheProductsLocally(items: any[]): void {
+    if (!Array.isArray(items) || items.length === 0) return;
     try {
       db.withTransactionSync(() => {
+        items.forEach((p) => this._insertProductRow(p));
+      });
+    } catch (e) {
+      console.error('[ProductRepo] Lỗi write-through sản phẩm vào SQLite:', e);
+    }
+  },
+
+  /**
+   * Đảm bảo có hàng Users(id) để FK của Likes/Comments/Orders luôn resolve.
+   * Tạo hàng tối thiểu nếu chưa tồn tại (kể cả tài khoản 'guest').
+   */
+  ensureUserRow(userId: string): void {
+    if (!userId) return;
+    db.runSync(
+      `INSERT OR IGNORE INTO Users (id, username, full_name, fullname, role, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        String(userId),
+        userId === 'guest' ? 'guest' : String(userId),
+        userId === 'guest' ? 'Khách' : 'Chiến sĩ',
+        userId === 'guest' ? 'Khách' : 'Chiến sĩ',
+        'soldier',
+        new Date().toISOString(),
+      ]
+    );
+  },
+
+  /**
+   * Cập nhật lượt thích sản phẩm của người dùng và lưu vào SQLite Likes.
+   * Phòng thủ FOREIGN KEY: đảm bảo hàng Users(id) và Products(id) tồn tại trước khi INSERT Likes.
+   * @param product (tuỳ chọn) dữ liệu sản phẩm để upsert hàng Products tối thiểu nếu chưa có.
+   */
+  likeProduct(productId: string, userId: string, isLiked: boolean, likeCount: number, product?: any): void {
+    try {
+      db.withTransactionSync(() => {
+        // 0. Đảm bảo FK target tồn tại để tránh "FOREIGN KEY constraint failed".
+        ProductRepository.ensureUserRow(userId);
+        if (product) {
+          ProductRepository._insertProductRow(product);
+        } else {
+          // Không có dữ liệu SP → tạo hàng tối thiểu chỉ với id để FK resolve.
+          ProductRepository._insertProductRow({ id: productId });
+        }
+
         // A. Cập nhật bảng Products
         db.runSync(
           'UPDATE Products SET is_liked = ?, like_count = ? WHERE id = ?',

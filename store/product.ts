@@ -93,6 +93,15 @@ export const useProductStore = create<ProductState>()(
           
           let allProducts = res.data || [];
 
+          // Write-through: lưu SP server vào SQLite Products (một nguồn sự thật) để
+          // like/comment offline luôn có hàng đích FK, tránh "FOREIGN KEY constraint failed".
+          try {
+            const { ProductRepository } = require('../lib/repositories/ProductRepository');
+            ProductRepository.cacheProductsLocally(allProducts);
+          } catch (cacheErr) {
+            console.warn('[ProductStore] Lỗi write-through SP vào SQLite:', cacheErr);
+          }
+
           // 3. Prioritize by user interest locally
           if (userInterestHistory.length > 0) {
             allProducts.sort((a, b) => {
@@ -170,10 +179,18 @@ export const useProductStore = create<ProductState>()(
           });
           
           let newProducts = res.data || [];
-          
+
           if (newProducts.length === 0) {
             set({ hasMore: false });
             return;
+          }
+
+          // Write-through: lưu SP server vào SQLite Products (FK target cho like/comment).
+          try {
+            const { ProductRepository } = require('../lib/repositories/ProductRepository');
+            ProductRepository.cacheProductsLocally(newProducts);
+          } catch (cacheErr) {
+            console.warn('[ProductStore] Lỗi write-through SP (trang nền) vào SQLite:', cacheErr);
           }
 
           if (userInterestHistory.length > 0) {

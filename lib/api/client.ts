@@ -3,6 +3,8 @@ import { useNetworkStore } from '../../store/network';
 import type { AuthTokens } from '../../types';
 import { getStoredJSON, removeStored } from '../storage/mmkv';
 import { getCachedServerResponse, saveServerResponseCache } from '../storage/serverResponseCache';
+import { persistServerResponse } from '../storage/responsePersistence';
+import { getMessageForCode, isSuccessCode, TOKEN_INVALID_CODE } from '../helpers/errorMapper';
 
 // Set EXPO_PUBLIC_API_URL in your .env file.
 const BASE_URL =
@@ -36,9 +38,11 @@ apiClient.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // --- VERBOSE LOGGING: REQUEST ---
-    const payloadLog = config.data ? ` - Payload: ${JSON.stringify(config.data)}` : '';
-    console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.url}${payloadLog}`);
+    // --- VERBOSE LOGGING: REQUEST (chỉ ở chế độ dev để tránh lộ payload nhạy cảm) ---
+    if (__DEV__) {
+      const payloadLog = config.data ? ` - Payload: ${JSON.stringify(config.data)}` : '';
+      console.log(`[API REQUEST] ${config.method?.toUpperCase()} ${config.url}${payloadLog}`);
+    }
     // --------------------------------
 
     return config;
@@ -56,21 +60,39 @@ apiClient.interceptors.response.use(
   (response) => {
     if (response.data && typeof response.data === 'object') {
       const dataObj = response.data as any;
-      if (dataObj.code !== undefined) {
-        const codeStr = String(dataObj.code);
-        dataObj.success = codeStr === '1000' || codeStr === '9994' || codeStr === '200' || codeStr === '201' || (response.status >= 200 && response.status < 300 && codeStr !== '1004' && codeStr !== '9999');
-      } else {
-        dataObj.success = response.status >= 200 && response.status < 300;
+      const codeStr = dataObj.code !== undefined ? String(dataObj.code) : undefined;
+
+      // Allowlist: chỉ các mã thành công (1000/9994/200/201) mới được coi là OK.
+      // Nếu response không có field `code` thì dựa trên HTTP status.
+      dataObj.success = codeStr === undefined
+        ? response.status >= 200 && response.status < 300
+        : isSuccessCode(codeStr);
+
+      // Token hết hạn trả về ở body 200 → xóa phiên để buộc đăng nhập lại.
+      if (codeStr === TOKEN_INVALID_CODE) {
+        removeStored('auth_tokens');
+        removeStored('auth-storage');
+        console.warn(`[API RESPONSE 9998] Token hết hạn tại ${response.config.url}`);
+        const err = new Error(getMessageForCode(codeStr, dataObj.message));
+        (err as any).serverCode = codeStr;
+        (err as any).response = { status: response.status, data: dataObj };
+        return Promise.reject(err);
       }
 
       if (!dataObj.success) {
-        console.warn(`[API RESPONSE ERROR] ${response.config.method?.toUpperCase()} ${response.config.url} - Code: ${dataObj.code}, Message: ${dataObj.message}`);
-        return Promise.reject(new Error(dataObj.message || 'Lỗi từ máy chủ API'));
+        const msg = getMessageForCode(codeStr, dataObj.message);
+        console.warn(`[API RESPONSE ERROR] ${response.config.method?.toUpperCase()} ${response.config.url} - Code: ${dataObj.code}, Message: ${msg}`);
+        const err = new Error(msg);
+        (err as any).serverCode = codeStr;
+        (err as any).response = { status: response.status, data: dataObj };
+        return Promise.reject(err);
       }
 
-      // --- VERBOSE LOGGING: SUCCESS RESPONSE ---
-      console.log(`[API RESPONSE SUCCESS] ${response.config.method?.toUpperCase()} ${response.config.url}`);
-      console.log(`[API RESPONSE DATA]`, JSON.stringify(dataObj));
+      // --- VERBOSE LOGGING: SUCCESS RESPONSE (chỉ dev) ---
+      if (__DEV__) {
+        console.log(`[API RESPONSE SUCCESS] ${response.config.method?.toUpperCase()} ${response.config.url}`);
+        console.log(`[API RESPONSE DATA]`, JSON.stringify(dataObj));
+      }
       // -----------------------------------------
     }
     return response;
@@ -129,6 +151,8 @@ export async function apiCall<T>(
   try {
     const response = await apiClient.request<T>({ method, url, data, params });
     saveServerResponseCache(method, url, data, params, response.data);
+    // Tự động điền dữ liệu server vào đúng bảng SQLite (upsert: xoá cũ, áp dụng mới).
+    persistServerResponse(method, url, response.data);
     return response.data;
   } catch (error: any) {
     if (error?.code === 'ERR_NETWORK' || error?.code === 'ECONNABORTED' || !error?.response) {

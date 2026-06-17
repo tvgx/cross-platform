@@ -43,7 +43,8 @@ export const useNotificationsStore = create<NotificationsState>()(
               : state.notifications.map((n) =>
                   n.id === id ? { ...n, is_read: true } : n,
                 );
-          return { notifications: updated, unreadCount: 0 };
+          // Tính lại số chưa đọc thay vì gán 0 (đọc 1 cái không được xoá sạch badge).
+          return { notifications: updated, unreadCount: updated.filter((n) => !n.is_read).length };
         }),
     }),
     {

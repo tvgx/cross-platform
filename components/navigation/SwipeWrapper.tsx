@@ -40,13 +40,13 @@ export const SwipeWrapper: React.FC<SwipeWrapperProps> = ({ children, currentTab
           // Swipe Right -> Go to previous tab
           if (currentIndex > 0) {
             const prevTab = TABS[currentIndex - 1];
-            router.push(prevTab === 'index' ? '/(main)/(tabs)' : `/(main)/(tabs)/${prevTab}` as any);
+            router.navigate(prevTab === 'index' ? '/(main)/(tabs)' : `/(main)/(tabs)/${prevTab}` as any);
           }
         } else if (swipeDistance < -50 && velocity < -0.3) {
           // Swipe Left -> Go to next tab
           if (currentIndex < TABS.length - 1) {
             const nextTab = TABS[currentIndex + 1];
-            router.push(`/(main)/(tabs)/${nextTab}` as any);
+            router.navigate(`/(main)/(tabs)/${nextTab}` as any);
           }
         }
       },

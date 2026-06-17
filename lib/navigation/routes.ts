@@ -12,6 +12,14 @@ export const ROUTES = {
   PROFILE: '/(main)/profile' as any,
   
   // Products & Categories
+  SEARCH: '/(main)/search' as any,
+  SEARCH_RESULTS: (q?: string, categoryId?: string) => {
+    let query = '';
+    if (q) query += `q=${encodeURIComponent(q)}&`;
+    if (categoryId) query += `category_id=${encodeURIComponent(categoryId)}&`;
+    if (query) query = `?${query.slice(0, -1)}`;
+    return `/(main)/search-results${query}` as any;
+  },
   ALL_PRODUCTS: '/(main)/all-products' as any,
   CATEGORY: (id: string) => `/(main)/category/${id}` as any,
   
@@ -30,6 +38,8 @@ export const ROUTES = {
   CHANGE_PASSWORD: '/(main)/change-password' as any,
   SETTINGS: '/(main)/settings' as any,
   NOTIFICATIONS: '/(main)/notifications' as any,
+  CHAT: '/(main)/chat' as any,
+  CHAT_DETAIL: (id: string) => `/(main)/chat/${id}` as any,
   
   // Root Modals
   MODAL: '/modal' as const

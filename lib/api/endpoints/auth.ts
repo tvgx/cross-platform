@@ -28,11 +28,17 @@ export const authApi = {
     apiCall<ApiResponse<null>>('POST', '/auth/reset_password', body),
 
   changePassword: (body: { old_password: string; new_password: string }) =>
-    apiCall<ApiResponse<null>>('POST', '/auth/change_password', body),
+    apiCall<ApiResponse<null>>('POST', '/auth/change_password', {
+      password: body.old_password,
+      new_password: body.new_password,
+    }),
 
   changeInfoAfterSignup: (body: Partial<User>) =>
     apiCall<ApiResponse<User>>('POST', '/auth/change_info_after_signup', body),
 
   setDevToken: (body: { dev_token: string; platform: 'ios' | 'android' }) =>
-    apiCall<ApiResponse<null>>('POST', '/dev_tokens/set_devtoken', body),
+    apiCall<ApiResponse<null>>('POST', '/dev_tokens/set_devtoken', {
+      devtoken: body.dev_token,
+      devtype: body.platform === 'ios' ? '1' : '0',
+    }),
 };

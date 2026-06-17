@@ -17,10 +17,15 @@ describe('ordersApi (Buyer)', () => {
   });
 
   describe('Address & Shipping', () => {
-    it('should get provinces successfully', async () => {
+    it('should get provinces via get_ship_from (level 1)', async () => {
       server.use(
-        http.get(`${BASE_URL}/order/provinces`, () => {
-          return HttpResponse.json({ success: true, data: [{ id: 1, name: 'Hanoi' }] }, { status: 200 });
+        http.get(`${BASE_URL}/order/get_ship_from`, ({ request }) => {
+          const url = new URL(request.url);
+          // Tỉnh/Thành: level 1, parent_id rỗng (0).
+          if (url.searchParams.get('level') === '1' && url.searchParams.get('parent_id') === '0') {
+            return HttpResponse.json({ success: true, data: [{ id: 1, name: 'Hanoi' }] }, { status: 200 });
+          }
+          return new HttpResponse(null, { status: 400 });
         })
       );
       const res = await ordersApi.getProvinces();
@@ -28,11 +33,12 @@ describe('ordersApi (Buyer)', () => {
       expect(res.data[0].name).toBe('Hanoi');
     });
 
-    it('should get wards successfully', async () => {
+    it('should get wards via get_ship_from (level 0, parent_id = province)', async () => {
       server.use(
-        http.get(`${BASE_URL}/order/wards`, ({ request }) => {
+        http.get(`${BASE_URL}/order/get_ship_from`, ({ request }) => {
           const url = new URL(request.url);
-          if (url.searchParams.get('province_id') === '1') {
+          // Phường/Xã: level 0, parent_id = id tỉnh.
+          if (url.searchParams.get('level') === '0' && url.searchParams.get('parent_id') === '1') {
             return HttpResponse.json({ success: true, data: [{ id: 101, name: 'Ba Dinh' }] }, { status: 200 });
           }
           return new HttpResponse(null, { status: 400 });

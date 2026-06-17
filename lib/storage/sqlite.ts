@@ -1,12 +1,127 @@
 import * as SQLite from 'expo-sqlite';
+import { DATABASE_NAME } from './databaseHelper';
 
 // DÃ¹ng SQLite trÃªn mÃ´i trÆ°á»ng native Android/iOS
-const localDb = SQLite.openDatabaseSync('army_db_v2.db');
+// Mở kết nối LAZY (chỉ mở ở lần truy cập đầu tiên), KHÔNG mở ở module load.
+// Lý do: openDatabaseSync sẽ TẠO file rỗng nếu chưa có ở đường dẫn đích → nếu mở
+// sớm thì bước copy seed (assets/databases) sẽ bị bỏ qua. Vì vậy app/_layout.tsx
+// gọi DatabaseRepository.bootstrap() (ensureDatabaseReady copy seed) TRƯỚC khi có
+// bất kỳ truy cập DB nào.
+let _db: SQLite.SQLiteDatabase | null = null;
+const _boundMethods = new Map<string | symbol, any>();
 
-export const db = localDb;
+/** Lấy (mở nếu cần) kết nối CSDL native. */
+export const getDatabase = (): SQLite.SQLiteDatabase => {
+  if (!_db) {
+    _db = SQLite.openDatabaseSync(DATABASE_NAME);
+    _boundMethods.clear();
+  }
+  return _db;
+};
+
+// `db` giữ nguyên API cũ (`db.runSync(...)`, `db.getAllSync(...)`) cho mọi repository,
+// nhưng uỷ quyền tới kết nối mở lazy ở trên qua Proxy.
+export const db: SQLite.SQLiteDatabase = new Proxy({} as SQLite.SQLiteDatabase, {
+  get(_target, prop) {
+    const instance = getDatabase();
+    const value = (instance as any)[prop];
+    if (typeof value !== 'function') return value;
+    // Trong test, method là jest.fn → trả thẳng để giữ mock API + identity ổn định.
+    if ((value as any)._isMockFunction) return value;
+    // App thật: bind & cache để giữ đúng `this` (expo dùng this.nativeDatabase).
+    if (!_boundMethods.has(prop)) _boundMethods.set(prop, value.bind(instance));
+    return _boundMethods.get(prop);
+  },
+});
+
+// Chặn dựng schema lặp lại: initDB() có thể được gọi cả khi nạp module lẫn từ
+// DatabaseRepository.bootstrap(). CREATE TABLE IF NOT EXISTS vốn idempotent;
+// guard này chỉ tránh chạy lại loạt lệnh không cần thiết.
+let schemaInitialized = false;
+
+/** Cho biết schema đã được dựng thành công hay chưa. */
+export const isSchemaInitialized = (): boolean => schemaInitialized;
+
+/** Đóng kết nối hiện tại để lần getDatabase() sau mở lại sạch (phục vụ reset). */
+export const closeDatabase = (): void => {
+  try {
+    (_db as any)?.closeSync?.();
+  } catch (e) {
+    console.warn('[SQLite] Lỗi đóng kết nối CSDL:', e);
+  }
+  _db = null;
+  _boundMethods.clear();
+  schemaInitialized = false;
+};
+
+/**
+ * Phiên bản schema cục bộ. TĂNG số này mỗi khi đổi cấu trúc bảng/cột để buộc
+ * thiết bị migrate (drop & recreate) ở lần mở app kế tiếp — vá được lỗi lệch
+ * schema kiểu "table X has no column named ...".
+ */
+export const SCHEMA_VERSION = 2;
+
+/**
+ * Schema cục bộ bám theo thiết kế server (docs/IT4788.sql) nhưng KHÔNG đổi tên
+ * bảng/cột mà app đang dùng (đổi tên sẽ phá toàn bộ repository). Bảng kê tương ứng:
+ *
+ *   Server (IT4788.sql)   ↔  Local (bảng dưới đây)
+ *   --------------------     ----------------------
+ *   Battle_Proofs         ↔  Posts        (author_id ↔ user_id; +title, +media_url)
+ *   Reward_Rules          ↔  RewardRules
+ *   Product_Variants      ↔  ProductVariants
+ *   Order_Items           ↔  OrderItems   (+total_price khớp server; app dùng price)
+ *   User_Conversations    ↔  UserConversations
+ *   User_Codes            ↔  User_Codes
+ *   Products.image_urls   ↔  Products.image_urls (thêm để khớp; app hiện đọc cột images)
+ *
+ * Các cột CHỈ-CÓ-CỤC-BỘ phục vụ offline-first/UI (không có ở server):
+ *   sync_status, price_new, images, video, stock, is_stock, sold_count, rating,
+ *   like_count, comment, is_liked, virtual_balance, rank, unit, is_seller, phone, full_name.
+ * Cố ý BỎ cột nhạy cảm `Users.password` (không lưu mật khẩu trên thiết bị).
+ */
+
+/** Drop sạch mọi bảng người dùng (giữ lại bảng nội bộ của SQLite). */
+const dropAllTables = (): void => {
+  try {
+    db.execSync('PRAGMA foreign_keys = OFF;');
+    const tables = db.getAllSync<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'android_metadata'"
+    );
+    for (const t of tables) {
+      db.execSync(`DROP TABLE IF EXISTS "${t.name}";`);
+    }
+    console.log(`[SQLite] Đã drop ${tables.length} bảng cũ để dựng lại schema mới.`);
+  } catch (e) {
+    console.warn('[SQLite] Lỗi drop bảng khi migrate:', e);
+  } finally {
+    db.execSync('PRAGMA foreign_keys = ON;');
+  }
+};
+
+/**
+ * Kiểm tra phiên bản schema trên thiết bị (PRAGMA user_version). Nếu cũ hơn
+ * SCHEMA_VERSION → drop & recreate. Dữ liệu cục bộ là cache của server nên sẽ
+ * được đồng bộ lại; SyncQueue đang chờ sẽ mất khi nâng cấp schema (chấp nhận được).
+ */
+const migrateSchemaIfNeeded = (): void => {
+  try {
+    const row = db.getFirstSync<{ user_version: number }>('PRAGMA user_version');
+    const deviceVersion = row?.user_version ?? 0;
+    if (deviceVersion < SCHEMA_VERSION) {
+      console.log(`[SQLite] Schema thiết bị v${deviceVersion} < v${SCHEMA_VERSION} → migrate (drop & recreate).`);
+      dropAllTables();
+    }
+  } catch (e) {
+    console.warn('[SQLite] Lỗi kiểm tra phiên bản schema:', e);
+  }
+};
 
 export const initDB = () => {
+  if (schemaInitialized) return;
   try {
+    // Migrate TRƯỚC khi dựng bảng: vá lệch schema từ bản app cũ (vd thiếu price_new).
+    migrateSchemaIfNeeded();
     // KÃ­ch hoáº¡t khÃ³a ngoáº¡i Ä‘á»ƒ báº£o toÃ n tÃ­nh toÃ n váº¹n quan há»‡ thá»±c thá»ƒ
     db.execSync('PRAGMA foreign_keys = ON;');
 
@@ -118,6 +233,7 @@ export const initDB = () => {
         like_count INTEGER DEFAULT 0,
         comment INTEGER DEFAULT 0,  -- ThÃªm má»›i
         is_liked BOOLEAN DEFAULT 0,
+        image_urls TEXT,            -- Khớp server (IT4788 Products.image_urls); app hiện đọc cột images
         created_at TEXT
       );
     `);
@@ -217,6 +333,7 @@ export const initDB = () => {
         product_id TEXT,
         variant_id TEXT,
         price REAL DEFAULT 0,
+        total_price REAL DEFAULT 0,  -- Khớp server (IT4788 Order_Items.total_price)
         quantity INTEGER DEFAULT 1,
         FOREIGN KEY (order_id) REFERENCES Orders (id) ON DELETE CASCADE,
         FOREIGN KEY (product_id) REFERENCES Products (id),
@@ -281,6 +398,17 @@ export const initDB = () => {
       );
     `);
 
+    // 18b. Bảng User_Codes (mã OTP) — khớp thiết kế server (IT4788.sql).
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS User_Codes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        code TEXT,
+        expired_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE
+      );
+    `);
+
     // 19. Táº¡o báº£ng SyncQueue (HÃ ng Ä‘á»£i offline)
     db.execSync(`
       CREATE TABLE IF NOT EXISTS SyncQueue (
@@ -305,10 +433,27 @@ export const initDB = () => {
       );
     `);
 
+    // 20. Táº¡o báº£ng Notifications
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS Notifications (
+        id TEXT PRIMARY KEY,
+        type TEXT,
+        title TEXT,
+        body TEXT,
+        data TEXT,
+        is_read BOOLEAN DEFAULT 0,
+        created_at TEXT
+      );
+    `);
+
     console.log('[SQLite] Khá»Ÿi táº¡o CSDL dÃ£ chiáº¿n thÃ nh cÃ´ng (khÃ´ng kÃ¨m dá»¯ liá»‡u giáº£).');
+    db.execSync(`PRAGMA user_version = ${SCHEMA_VERSION};`);
+    schemaInitialized = true;
   } catch (error) {
     console.error('Lá»—i khá»Ÿi táº¡o SQLite:', error);
   }
 };
 
-initDB();
+// KHÔNG auto-init ở module load nữa: DatabaseRepository.bootstrap() (gọi sớm trong
+// app/_layout.tsx) chạy ensureDatabaseReady() (copy seed từ assets) TRƯỚC rồi mới
+// initDB(), nhờ vậy file seed mới kịp được nạp trước khi mở kết nối.

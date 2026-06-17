@@ -49,16 +49,12 @@ export function HomeView() {
     fetchInitialData();
   }, [fetchInitialData]);
 
-  const handleSearch = (query: string) => {
-    console.log('Searching for:', query);
-    // TODO: implement search navigation
-  };
+
 
   const handleCategoryPress = (category: Category) => {
     // Lưu lịch sử quan tâm
     addInterest(Number(category.id));
-    console.log('Category pressed:', category.name);
-    // TODO: Navigate to category products screen
+    router.push(`/(main)/(tabs)/category/${category.id}` as any);
   };
 
   const renderProduct = useCallback(({ item }: { item: ProductListItem }) => (
@@ -94,7 +90,7 @@ export function HomeView() {
     <SwipeWrapper currentTab="index">
       <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: currentColors.background }}>
         <Animated.View style={{ transform: [{ translateY }], position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-          <CustomAppBar title="TiếpTế" showSearch={true} onSearch={handleSearch} />
+          <CustomAppBar title="TiếpTế" showSearch={true} />
         </Animated.View>
         <AnimatedFlashList
           data={displayedProducts}

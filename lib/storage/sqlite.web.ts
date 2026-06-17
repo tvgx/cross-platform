@@ -81,7 +81,20 @@ const localDb = {
 
 export const db = localDb as unknown as SQLite.SQLiteDatabase;
 
+/** Web dùng AlaSQL in-memory; trả thẳng `db` để khớp API với bản native. */
+export const getDatabase = (): SQLite.SQLiteDatabase => db;
+
+/** No-op trên web (AlaSQL in-memory) — giữ API khớp bản native. */
+export const closeDatabase = (): void => {};
+
+// Guard tránh dựng schema lặp (song song với bản native sqlite.ts).
+let schemaInitialized = false;
+
+/** Cho biết schema đã được dựng thành công hay chưa. */
+export const isSchemaInitialized = (): boolean => schemaInitialized;
+
 export const initDB = () => {
+  if (schemaInitialized) return;
   try {
     // KÃ­ch hoáº¡t khÃ³a ngoáº¡i Ä‘á»ƒ báº£o toÃ n tÃ­nh toÃ n váº¹n quan há»‡ thá»±c thá»ƒ
     db.execSync('PRAGMA foreign_keys = ON;');
@@ -194,6 +207,7 @@ export const initDB = () => {
         like_count INTEGER DEFAULT 0,
         comment INTEGER DEFAULT 0,  -- ThÃªm má»›i
         is_liked BOOLEAN DEFAULT 0,
+        image_urls TEXT,            -- Khớp server (IT4788 Products.image_urls)
         created_at TEXT
       );
     `);
@@ -283,6 +297,7 @@ export const initDB = () => {
         product_id TEXT,
         variant_id TEXT,
         price REAL DEFAULT 0,
+        total_price REAL DEFAULT 0,  -- Khớp server (IT4788 Order_Items.total_price)
         quantity INTEGER DEFAULT 1,
         FOREIGN KEY (order_id) REFERENCES Orders (id) ON DELETE CASCADE,
         FOREIGN KEY (product_id) REFERENCES Products (id),
@@ -347,6 +362,17 @@ export const initDB = () => {
       );
     `);
 
+    // 18b. Bảng User_Codes (mã OTP) — khớp thiết kế server (IT4788.sql).
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS User_Codes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        code TEXT,
+        expired_at TEXT,
+        FOREIGN KEY (user_id) REFERENCES Users (id) ON DELETE CASCADE
+      );
+    `);
+
     // 19. Táº¡o báº£ng SyncQueue (HÃ ng Ä‘á»£i offline)
     db.execSync(`
       CREATE TABLE IF NOT EXISTS SyncQueue (
@@ -372,6 +398,7 @@ export const initDB = () => {
     `);
 
     console.log('[SQLite] Khá»Ÿi táº¡o CSDL giáº£ láº­p Web (AlaSQL) thÃ nh cÃ´ng.');
+    schemaInitialized = true;
   } catch (error) {
     console.error('Lá»—i khá»Ÿi táº¡o SQLite Web (AlaSQL):', error);
   }

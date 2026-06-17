@@ -45,23 +45,35 @@ export const useCatalogStore = create<CatalogState>()(
       markSynced: () => set({ lastSyncedAt: Date.now() }),
       setFetching: (value) => set({ isFetching: value }),
       toggleLike: (productId, userId) => {
-        let newIsLiked = false;
-        let newLikeCount = 0;
-        
-        set((state) => {
-          const newProducts = state.products.map(p => {
-            if (String(p.id) === String(productId)) {
-              newIsLiked = !p.is_liked;
-              const currentLikeCount = Number(p.like_count || p.like || 0);
-              newLikeCount = newIsLiked ? (currentLikeCount + 1) : Math.max(0, currentLikeCount - 1);
-              return { ...p, is_liked: newIsLiked, like_count: newLikeCount };
-            }
-            return p;
-          });
-          return { products: newProducts };
-        });
+        // Xác định trạng thái hiện tại: ưu tiên catalog store, nếu không có thì tra product store
+        // (màn Home dùng product store) để tránh ghi sai is_liked/like_count xuống SQLite.
+        let current: any = get().products.find(p => String(p.id) === String(productId));
+        if (!current) {
+          try {
+            const { useProductStore } = require('./product');
+            const ps = useProductStore.getState();
+            current = [...ps.displayedProducts, ...ps.localProductCache].find(
+              (p: any) => String(p.id) === String(productId),
+            );
+          } catch {}
+        }
+        const wasLiked = !!current?.is_liked;
+        const curCount = Number(current?.like_count ?? current?.like ?? 0);
+        const newIsLiked = !wasLiked;
+        const newLikeCount = newIsLiked ? curCount + 1 : Math.max(0, curCount - 1);
 
-        ProductRepository.likeProduct(productId, userId, newIsLiked, newLikeCount);
+        // Cập nhật bản sao trong catalog store nếu sản phẩm có ở đây
+        set((state) => ({
+          products: state.products.map(p =>
+            String(p.id) === String(productId)
+              ? { ...p, is_liked: newIsLiked, like_count: newLikeCount }
+              : p,
+          ),
+        }));
+
+        // Truyền dữ liệu sản phẩm (nếu tìm được) để repository upsert hàng Products tối thiểu,
+        // tránh "FOREIGN KEY constraint failed" khi SP của Home chưa có trong SQLite.
+        ProductRepository.likeProduct(productId, userId, newIsLiked, newLikeCount, current);
 
         // Run API update asynchronously
         setTimeout(async () => {

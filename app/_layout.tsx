@@ -1,15 +1,23 @@
 import NetInfo from '@react-native-community/netinfo';
 import { Stack, useGlobalSearchParams, usePathname } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { DeviceEventEmitter, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { UI_CONFIG } from '../constants/config';
 import { RepositoryProvider } from '../context/RepositoryProvider';
+import { DatabaseRepository } from '../lib/repositories/DatabaseRepository';
 import { registerBackgroundSyncAsync } from '../lib/tasks/backgroundSync';
 import { SyncService } from '../services/SyncService';
 import { useAppStore } from '../store/app';
 import { useNetworkStore } from '../store/network';
 import { useSyncQueueStore } from '../store/syncQueue';
+
+import { useNotificationPoller } from '../hooks/useNotificationPoller';
+
+function PollerRunner() {
+  useNotificationPoller();
+  return null;
+}
 
 export default function RootLayout() {
   const setOnline = useNetworkStore((state) => state.setOnline);
@@ -17,6 +25,15 @@ export default function RootLayout() {
   const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
   const pathname = usePathname();
   const params = useGlobalSearchParams();
+
+  // Cổng chờ CSDL: bootstrap (copy seed từ assets/databases nếu cần + dựng schema)
+  // PHẢI xong TRƯỚC khi render cây app hoặc truy cập DB. Chạy ngay khi app mở.
+  const [dbReady, setDbReady] = useState(false);
+  useEffect(() => {
+    DatabaseRepository.bootstrap()
+      .catch((err) => console.error('[RootLayout] Bootstrap CSDL thất bại:', err))
+      .finally(() => setDbReady(true));
+  }, []);
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('sync_completed', () => {
@@ -26,7 +43,8 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    // DB is auto-initialized on module load in sqlite.ts
+    // Chỉ chạy các tác vụ phụ thuộc DB sau khi CSDL đã sẵn sàng.
+    if (!dbReady) return;
 
     // Initialize SyncService listeners
     SyncService.init();
@@ -73,12 +91,22 @@ export default function RootLayout() {
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [dbReady]);
+
+  // Trong lúc chờ CSDL sẵn sàng: render nền trống (tránh mọi màn hình truy cập DB sớm).
+  if (!dbReady) {
+    return (
+      <SafeAreaProvider>
+        <View style={{ flex: 1, backgroundColor: currentColors.background }} />
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
       <View style={{ flex: 1, backgroundColor: currentColors.background }}>
         <RepositoryProvider>
+          <PollerRunner />
           <Stack screenOptions={{ headerShown: false }}>
             {/* Auth Flow */}
             <Stack.Screen name="(auth)" options={{ headerShown: false }} />

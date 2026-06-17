@@ -34,14 +34,18 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
 
   checkBackendHealth: async () => {
     try {
-      // Perform a lightweight request to check backend connectivity
-      await axios.get(`${BASE_URL}/check_new_items`, {
-        timeout: 5000,
-        params: { since: '2024-01-01' }
-      });
+      // Ping endpoint công khai có thật trên server ("/" — App root) để kiểm tra backend.
+      // Coi mọi HTTP response (kể cả 4xx) là "backend sống"; chỉ lỗi mạng mới là chết.
+      await axios.get(BASE_URL, { timeout: 5000 });
       set({ isBackendAlive: true });
       console.log('[Network] Backend is ALIVE.');
-    } catch (error) {
+    } catch (error: any) {
+      // Có response (server trả lỗi nghiệp vụ/HTTP) ⇒ backend vẫn sống.
+      if (error?.response) {
+        set({ isBackendAlive: true });
+        console.log('[Network] Backend ALIVE (responded with status).');
+        return;
+      }
       console.warn('[Network] Backend health check FAILED. Switching to Offline Mode.');
       set({ isBackendAlive: false });
     }

@@ -4,14 +4,17 @@ import { SafeArea } from '../../components/layout/SafeArea';
 import { Header } from '../../components/navigation/Header';
 import { Button } from '../../components/ui/Button';
 import { UI_CONFIG } from '../../constants/config';
+import { authApi } from '../../lib/api/endpoints/auth';
 
 export function ChangePasswordView() {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
+    setMessage('');
     if (!oldPassword || !newPassword || !confirmPassword) {
       setMessage('Vui lòng nhập đầy đủ thông tin!');
       return;
@@ -20,7 +23,32 @@ export function ChangePasswordView() {
       setMessage('Mật khẩu mới không khớp!');
       return;
     }
-    setMessage('Đổi mật khẩu thành công (Mô phỏng)!');
+    // Quy tắc mật khẩu theo đề tài: 6–10 ký tự, không chứa ký tự đặc biệt.
+    if (newPassword.length < 6 || newPassword.length > 10) {
+      setMessage('Mật khẩu mới phải có từ 6 đến 10 ký tự.');
+      return;
+    }
+    if (/[^A-Za-z0-9]/.test(newPassword)) {
+      setMessage('Mật khẩu mới không được chứa ký tự đặc biệt.');
+      return;
+    }
+    if (oldPassword === newPassword) {
+      setMessage('Mật khẩu mới phải khác mật khẩu hiện tại.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await authApi.changePassword({ old_password: oldPassword, new_password: newPassword });
+      setMessage('Đổi mật khẩu thành công!');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setMessage(err?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -65,7 +93,7 @@ export function ChangePasswordView() {
         ) : null}
         
         <View style={styles.buttonContainer}>
-          <Button text="Cập nhật mật khẩu" onPress={handleChangePassword} />
+          <Button text={loading ? 'Đang xử lý...' : 'Cập nhật mật khẩu'} onPress={handleChangePassword} disabled={loading} />
         </View>
       </ScrollView>
     </SafeArea>

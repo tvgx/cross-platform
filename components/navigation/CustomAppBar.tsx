@@ -44,29 +44,31 @@ export function CustomAppBar({ title = "TiếpTế", showBack = false, showSearc
       </TouchableOpacity>
 
       {showSearch ? (
-        <View style={[styles.searchContainer, { backgroundColor: currentColors.surface }]}>
-          <TextInput
-            style={[styles.searchInput, { color: currentColors.text }]}
-            placeholder="Tìm kiếm sản phẩm..."
-            placeholderTextColor={currentColors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearchSubmit}
-            returnKeyType="search"
-          />
-          <TouchableOpacity style={styles.searchIconButton} onPress={handleSearchSubmit}>
+        <TouchableOpacity 
+          style={[styles.searchContainer, { backgroundColor: currentColors.surface }]}
+          onPress={() => router.push(ROUTES.SEARCH)}
+        >
+          <Text style={[styles.searchInput, { color: currentColors.textSecondary, paddingTop: Platform.OS === 'web' ? 8 : 6 }]}>
+            Tìm kiếm sản phẩm...
+          </Text>
+          <View style={styles.searchIconButton}>
             <IconSymbol name="magnifyingglass" size={20} color={currentColors.primary} />
-          </TouchableOpacity>
-        </View>
+          </View>
+        </TouchableOpacity>
       ) : (
         <Text style={[styles.title, { color: currentColors.white }]} numberOfLines={1}>{title}</Text>
       )}
 
       <View style={styles.rightContainer}>
         {user && (
-          <TouchableOpacity style={styles.iconButton} onPress={() => router.push(ROUTES.NOTIFICATIONS)}>
-            <IconSymbol name="bell" size={24} color={currentColors.white} />
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push(ROUTES.CHAT)}>
+              <IconSymbol name="message" size={24} color={currentColors.white} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => router.push(ROUTES.NOTIFICATIONS)}>
+              <IconSymbol name="bell" size={24} color={currentColors.white} />
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>

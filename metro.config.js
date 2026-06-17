@@ -5,6 +5,9 @@ const config = getDefaultConfig(__dirname);
 // Add 'wasm' to asset extensions
 config.resolver.assetExts.push('wasm');
 
+// Cho phép bundle file CSDL seed (.db) trong assets/databases để app copy lúc khởi tạo.
+config.resolver.assetExts.push('db');
+
 // Mock react-native-fetch-blob and Node.js core modules for alasql
 const nodeMocks = new Set([
   'fs',

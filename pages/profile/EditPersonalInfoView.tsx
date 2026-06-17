@@ -10,6 +10,7 @@ import { ordersApi } from '../../lib/api/endpoints/orders';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { validateEmail } from '../../lib/utils/validators';
 
 export function EditPersonalInfoView() {
   const { user, updateUser } = useAuthStore();
@@ -75,6 +76,11 @@ export function EditPersonalInfoView() {
   };
 
   const handleSave = async () => {
+    const emailCheck = validateEmail(email, true); // email không bắt buộc
+    if (!emailCheck.ok) {
+      alert(emailCheck.message);
+      return;
+    }
     setIsSaving(true);
     try {
       // 1. Update user info

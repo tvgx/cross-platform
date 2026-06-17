@@ -92,11 +92,10 @@ export const SyncService = {
 
     try {
       const isOnline = useNetworkStore.getState().isOnline;
-      
+
       if (!isOnline) {
-        // Mô phỏng thành công ngay lập tức ở chế độ Local
-        OrderRepository.markOrderSynced(orderId);
-        return true;
+        // Chưa thực sự online: giữ task trong hàng đợi để gửi lại khi có mạng thật.
+        return false;
       }
 
       const addressId = parseInt(payload.address_id);
@@ -109,7 +108,7 @@ export const SyncService = {
           if (isNaN(pid)) throw new Error(`Invalid product_id: ${item.product_id}`);
           return { product_id: pid, quantity: item.quantity };
         }),
-        source: "mobile",
+        order_source: "mobile",
         address_id: addressId
       };
 
@@ -157,8 +156,8 @@ export const SyncService = {
     try {
       const isOnline = useNetworkStore.getState().isOnline;
       if (!isOnline) {
-        PostRepository.markPostSynced(postId);
-        return true;
+        // Giữ task trong hàng đợi cho tới khi online thật.
+        return false;
       }
 
       const formData = new FormData();
@@ -169,8 +168,8 @@ export const SyncService = {
       } as any);
       formData.append('post_id', postId);
 
-      // Upload Multipart Form Data thực tế
-      await apiCall('POST', '/api/upload_media', formData, {
+      // Upload Multipart Form Data thực tế (endpoint server: /upload/file)
+      await apiCall('POST', '/upload/file', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -192,18 +191,21 @@ export const SyncService = {
    */
   async submitAppeal(appealId: string, payload: any) {
     console.log(`[Sync] Đang đồng bộ khiếu nại chiến tích ${appealId} lên máy chủ...`);
-    
+
     const isOnline = useNetworkStore.getState().isOnline;
-    if (isOnline) {
-      await apiCall('POST', '/api/appeals', {
-        appeal_id: appealId,
-        ...payload
+    if (!isOnline) return false; // giữ task để gửi lại khi online thật
+
+    try {
+      await apiCall('POST', '/rewards/create_reward_appeal', {
+        reward_id: payload?.reward_id ?? appealId,
+        reason: payload?.reason ?? payload?.description ?? '',
       });
+      PostRepository.markAppealSynced(appealId);
+      return true;
+    } catch (err) {
+      console.error(`[Sync] Lỗi đồng bộ khiếu nại ${appealId}:`, err);
+      return false;
     }
-    
-    // Cập nhật trạng thái Appeals thông qua PostRepository
-    PostRepository.markAppealSynced(appealId);
-    return true;
   },
 
   /**
@@ -215,23 +217,21 @@ export const SyncService = {
 
     try {
       const isOnline = useNetworkStore.getState().isOnline;
-      if (!isOnline) {
-        MessageRepository.markMessageSynced(messageId);
-        return true;
-      }
+      if (!isOnline) return false; // giữ task để gửi lại khi online thật
 
-      const toId = parseInt(payload.to_id);
-      if (isNaN(toId)) throw new Error(`Invalid to_id: ${payload.to_id}`);
-      const productId = parseInt(payload.product_id);
-      if (isNaN(productId)) throw new Error(`Invalid product_id: ${payload.product_id}`);
-
-      // Ánh xạ chuẩn SendMessageDto
-      const apiPayload = {
-        to_id: toId,
+      // Ánh xạ SendMessageDto — chấp nhận tin nhắn theo conversation_id hoặc to_id/partner_id,
+      // product_id là tùy chọn (tin nhắn text thuần không cần product_id).
+      const apiPayload: any = {
         message: payload.message || payload.content || '',
-        type_message: payload.type_message || 'text',
-        product_id: productId
+        type_message: payload.type_message || payload.type || 'text',
       };
+      if (payload.conversation_id) apiPayload.conversation_id = payload.conversation_id;
+      const toId = parseInt(payload.to_id);
+      if (!isNaN(toId)) apiPayload.to_id = toId;
+      const partnerId = parseInt(payload.partner_id);
+      if (!isNaN(partnerId)) apiPayload.partner_id = partnerId;
+      const productId = parseInt(payload.product_id);
+      if (!isNaN(productId)) apiPayload.product_id = productId;
 
       // Gửi tin nhắn thực tế qua API
       await apiCall('POST', '/conversation/send_message', apiPayload);

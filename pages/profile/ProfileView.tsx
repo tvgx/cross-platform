@@ -79,9 +79,9 @@ export function ProfileView() {
         {/* Header section */}
         <View style={styles.headerContainer}>
           <View style={styles.coverContainer}>
-            <Image 
-              source={{ uri: (user as any)?.cover_image || 'https://via.placeholder.com/800x400' }} 
-              style={styles.coverImage} 
+            <Image
+              source={(user as any)?.cover_image ? { uri: (user as any).cover_image } : require('../../assets/images/cover.jpg')}
+              style={styles.coverImage}
             />
           </View>
           <View style={styles.profileHeader}>

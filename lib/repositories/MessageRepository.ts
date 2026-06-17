@@ -176,5 +176,78 @@ export const MessageRepository = {
     } catch (e) {
       console.error('[MessageRepo] Lỗi cập nhật trạng thái đồng bộ tin nhắn:', e);
     }
+  },
+
+  /**
+   * Lưu danh sách conversation lấy từ server, giới hạn cache 50 mục
+   */
+  saveConversations(userId: string, conversations: any[]): void {
+    try {
+      db.execSync('BEGIN TRANSACTION;');
+      
+      for (const conv of conversations) {
+        // Upsert Conversation
+        db.runSync(
+          `INSERT INTO Conversations (id, time_last_update)
+           VALUES (?, ?)
+           ON CONFLICT(id) DO UPDATE SET time_last_update = excluded.time_last_update`,
+          [conv.id, new Date(conv.updated_at).getTime()]
+        );
+
+        // Map to User
+        db.runSync(
+          `INSERT OR IGNORE INTO UserConversations (user_id, conversation_id) VALUES (?, ?)`,
+          [userId, conv.id]
+        );
+
+        // Map participants
+        if (conv.participants) {
+          for (const p of conv.participants) {
+             // ensure user is in DB
+             db.runSync(
+               `INSERT OR IGNORE INTO Users (id, username, full_name, avatar) VALUES (?, ?, ?, ?)`,
+               [p.id, p.username, p.full_name || p.username, p.avatar || null]
+             );
+             db.runSync(
+               `INSERT OR IGNORE INTO UserConversations (user_id, conversation_id) VALUES (?, ?)`,
+               [p.id, conv.id]
+             );
+          }
+        }
+
+        // Cập nhật last message nếu có
+        if (conv.last_message) {
+          MessageRepository.saveMessageFromServer(conv.last_message);
+        }
+      }
+      
+      db.execSync('COMMIT;');
+    } catch (e) {
+      db.execSync('ROLLBACK;');
+      console.error('[MessageRepo] saveConversations error', e);
+    }
+  },
+
+  /** Lưu tin nhắn lấy từ server */
+  saveMessageFromServer(msg: any): void {
+    try {
+      db.runSync(
+        `INSERT INTO Messages (id, conversation_id, sender_id, content, image_url, video_url, sync_status, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET sync_status = excluded.sync_status`,
+        [
+          msg.id,
+          msg.conversation_id,
+          msg.sender_id,
+          msg.content,
+          msg.type === 'image' ? msg.content : null,
+          msg.type === 'video' ? msg.content : null,
+          'synced',
+          new Date(msg.created_at).getTime(),
+        ]
+      );
+    } catch (e) {
+      console.error('[MessageRepo] saveMessageFromServer error', e);
+    }
   }
 };

@@ -12,6 +12,8 @@ import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 import { useAuthStore } from '../../store/auth';
 import { useNetworkStore } from '../../store/network';
+import { validatePhone, validateRequired, firstError } from '../../lib/utils/validators';
+import { getAuthErrorMessage } from '../../lib/helpers/errorMapper';
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect } from 'react';
 export function LoginView() {
@@ -33,8 +35,12 @@ export function LoginView() {
   }, []);
 
   const handleLogin = async () => {
-    if (!phoneNumber || !password) {
-      Alert.alert('Lỗi', 'Vui lòng nhập đầy đủ số điện thoại và mật khẩu.');
+    const check = firstError(
+      validatePhone(phoneNumber),
+      validateRequired(password, 'Mật khẩu'),
+    );
+    if (!check.ok) {
+      Alert.alert('Lỗi', check.message!);
       return;
     }
 
@@ -45,8 +51,8 @@ export function LoginView() {
       console.log('[Auth] Đang gọi API đăng nhập từ server...');
       const res = await authApi.login({ phone_number: phoneNumber, password });
 
-      if (res && (res.success || (res as any).code === '1000' || res.data)) {
-        const rawData = res.data as any;
+      if (res && (res.success || (res as any).code === '1000' || (res as any).data)) {
+        const rawData = (res as any).data || res;
 
         // Handle both expected formats: nested {user, tokens} or flat {id, username, token}
         const user = rawData.user || {
@@ -65,12 +71,12 @@ export function LoginView() {
         };
 
         if (!user.id) {
-          throw new Error('Dữ liệu trả về không hợp lệ');
+          throw new Error('Dữ liệu trả về không hợp lệ (thiếu user.id)');
         }
 
         console.log('[Auth] Đăng nhập thành công từ server. User ID:', user.id);
 
-        // Lưu thông tin người dùng cục bộ vào SQLite để đồng bộ ngoại tuyến
+        // Lưu thông tự cục bộ vào SQLite để đồng bộ ngoại tuyến
         userRepository.saveUser(user);
         userRepository.createWallet(user.id, user.virtual_balance || 0);
 
@@ -115,27 +121,33 @@ export function LoginView() {
         }
         return;
       } else {
-        // Lỗi nghiệp vụ từ server (ví dụ: sai mật khẩu)
+        // Lỗi nghiệp vụ từ server (ví dụ: sai mật khẩu) → map mã sang tiếng Việt, không show text thô.
         setLoading(false);
-        const errMsg = res.message || 'Sai thông tin đăng nhập.';
+        const errMsg = getAuthErrorMessage((res as any).code, 'Sai số điện thoại hoặc mật khẩu.');
         Alert.alert('Đăng nhập thất bại', errMsg);
         return;
       }
     } catch (apiErr: any) {
-      console.log('[Auth] Lỗi kết nối API đăng nhập hoặc lỗi nghiệp vụ:', apiErr);
-
       const isNetworkError = apiErr.message === 'Local Mode Only' || apiErr.code === 'ERR_NETWORK' || apiErr.code === 'ECONNABORTED';
 
-      // Nếu không phải lỗi mạng thì báo lỗi nghiệp vụ
+      if (isNetworkError) {
+        console.log('[Auth] Mạng lỗi thực sự (Axios Network Error):', apiErr.message);
+      } else {
+        console.log('[Auth] Lỗi xử lý dữ liệu hoặc server từ chối:', apiErr.message || apiErr);
+      }
+
+      // Nếu không phải lỗi mạng thì báo lỗi nghiệp vụ.
+      // Ưu tiên map mã server (serverCode) sang tiếng Việt thân thiện, KHÔNG hiển thị text thô.
       if (!isNetworkError) {
         setLoading(false);
-        let errMsg = apiErr.message || 'Sai thông tin đăng nhập.';
-        if (apiErr.response?.data?.message) {
-          errMsg = apiErr.response.data.message;
-        } else if (apiErr.response?.status) {
-          if (apiErr.response.status === 400 || apiErr.response.status === 401) errMsg = 'Sai số điện thoại hoặc mật khẩu.';
-          else if (apiErr.response.status === 404) errMsg = 'Tài khoản không tồn tại.';
-          else if (apiErr.response.status >= 500) errMsg = 'Lỗi máy chủ. Vui lòng thử lại sau.';
+        const serverCode = apiErr.serverCode ?? apiErr.response?.data?.code;
+        let errMsg = getAuthErrorMessage(serverCode, 'Sai số điện thoại hoặc mật khẩu.');
+        // Chỉ dùng HTTP status khi server không trả mã nghiệp vụ.
+        if (serverCode === undefined || serverCode === null) {
+          const status = apiErr.response?.status;
+          if (status === 400 || status === 401) errMsg = 'Sai số điện thoại hoặc mật khẩu.';
+          else if (status === 404) errMsg = 'Tài khoản chưa được đăng ký trên hệ thống.';
+          else if (status >= 500) errMsg = 'Lỗi máy chủ. Vui lòng thử lại sau.';
         }
         Alert.alert('Đăng nhập thất bại', errMsg);
         return;

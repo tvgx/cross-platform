@@ -10,19 +10,41 @@ import type {
 } from '../../../types';
 
 export const ordersApi = {
-  // Shipping
-  getShipFrom: (params?: { index: number; count: number; parent_id: number; level?: number }) =>
-    apiCall<ApiResponse<ShipFrom[]>>('GET', '/order/get_ship_from', undefined, params as Record<string, unknown>),
+  // Shipping / địa giới hành chính.
+  // Server CHỈ có 1 endpoint tra cứu khu vực: GET /order/get_ship_from.
+  // Theo mô tả server: "Lấy danh sách kho hàng theo khu vực 0-phường, 1-tỉnh"
+  //   → level = 1 là Tỉnh/Thành phố (cấp trên, không có cha),
+  //     level = 0 là Phường/Xã (cấp dưới, parent_id = id của tỉnh).
+  // index/count là BẮT BUỘC (phân trang). KHÔNG tồn tại /order/provinces, /order/wards.
+  getShipFrom: (params: { index: number; count: number; parent_id: number | string; level?: number }) =>
+    apiCall<ApiResponse<ShipFrom[]>>('GET', '/order/get_ship_from', undefined, {
+      level: params.level,
+      index: params.index,
+      count: params.count,
+      parent_id: String(params.parent_id),
+    }),
 
   getShipFee: (params: { product_id: number; address_id: number }) =>
     apiCall<ApiResponse<ShipFee>>('POST', '/order/get_ship_fee', params),
 
   // Order addresses
+  // Tỉnh/Thành phố: level 1, không có cha (parent_id = 0).
   getProvinces: () =>
-    apiCall<ApiResponse<any[]>>('GET', '/order/provinces'),
+    apiCall<ApiResponse<any[]>>('GET', '/order/get_ship_from', undefined, {
+      level: 1,
+      parent_id: '0',
+      index: 0,
+      count: 1000,
+    }),
 
-  getWards: (provinceId: number) =>
-    apiCall<ApiResponse<any[]>>('GET', `/order/wards`, undefined, { province_id: provinceId }),
+  // Phường/Xã của một tỉnh: level 0, parent_id = id tỉnh.
+  getWards: (provinceId: number | string) =>
+    apiCall<ApiResponse<any[]>>('GET', '/order/get_ship_from', undefined, {
+      level: 0,
+      parent_id: String(provinceId),
+      index: 0,
+      count: 2000,
+    }),
 
   getOrderAddresses: () =>
     apiCall<ApiResponse<OrderAddress[]>>('GET', '/order/get_list_order_address'),
@@ -44,7 +66,12 @@ export const ordersApi = {
     items: { product_id: number; quantity: number }[];
     source: string;
     address_id: number;
-  }) => apiCall<ApiResponse<Order>>('POST', '/order/create_order', body),
+  }) => apiCall<ApiResponse<Order>>('POST', '/order/create_order', {
+    items: body.items,
+    // order_source là số theo CreateOrderDto (1 = đặt từ ứng dụng di động).
+    order_source: 1,
+    address_id: body.address_id,
+  }),
 
   getPurchases: (params?: { index: string | number; count: string | number; state?: string }) =>
     apiCall<ApiResponse<PaginatedResponse<Order>>>('POST', '/order/get_list_purchases', params),

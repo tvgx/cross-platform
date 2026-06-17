@@ -5,38 +5,62 @@ import type {
   Message,
   Conversation,
   BalanceTransaction,
-  RewardAppeal,
-  WithdrawRequest,
   PaginatedResponse,
 } from '../../../types';
+
+// Helper tính offset phân trang từ page/limit.
+const toIndex = (page?: number, limit?: number) =>
+  page !== undefined && limit !== undefined ? (page - 1) * limit : 0;
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export const notificationsApi = {
-  getNotifications: (params?: { page?: number; limit?: number }) =>
-    apiCall<ApiResponse<PaginatedResponse<AppNotification>>>('GET', '/get_notification', undefined, params as Record<string, unknown>),
+  getNotifications: (params?: { page?: number; limit?: number; group?: number }) =>
+    apiCall<ApiResponse<PaginatedResponse<AppNotification>>>('POST', '/notification/get_notification', {
+      index: toIndex(params?.page, params?.limit),
+      count: params?.limit ?? 20,
+      group: params?.group ?? 0,
+    }),
 
   markRead: (notificationId: string | 'all') =>
-    apiCall<ApiResponse<null>>('POST', '/set_read_notification', { notification_id: notificationId }),
+    apiCall<ApiResponse<null>>('POST', '/notification/set_read_notification', { notification_id: notificationId }),
 };
 
-// ─── Messaging ───────────────────────────────────────────────────────────────
+// ─── Messaging / Conversations ─────────────────────────────────────────────────
 
 export const messagingApi = {
-  send: (body: { recipient_id?: string; conversation_id?: string; content: string; type?: Message['type'] }) =>
-    apiCall<ApiResponse<Message>>('POST', '/send_message', body),
+  send: (body: { to_id?: string | number; conversation_id?: string; content: string; type?: Message['type']; product_id?: string | number }) =>
+    apiCall<ApiResponse<Message>>('POST', '/conversation/send_message', {
+      ...(body.to_id !== undefined ? { to_id: body.to_id } : {}),
+      ...(body.conversation_id !== undefined ? { conversation_id: body.conversation_id } : {}),
+      message: body.content,
+      type_message: body.type ?? 'text',
+      ...(body.product_id !== undefined ? { product_id: body.product_id } : {}),
+    }),
 
-  getConversation: (params: { recipient_id?: string; conversation_id?: string }) =>
-    apiCall<ApiResponse<Conversation>>('GET', '/get_conversation', undefined, params),
+  getConversation: (params: { partner_id?: string | number; conversation_id?: string; page?: number; limit?: number }) =>
+    apiCall<ApiResponse<Conversation>>('POST', '/conversation/get_conversation', {
+      ...(params.partner_id !== undefined ? { partner_id: params.partner_id } : {}),
+      ...(params.conversation_id !== undefined ? { conversation_id: params.conversation_id } : {}),
+      index: toIndex(params.page, params.limit),
+      count: params.limit ?? 20,
+    }),
 
   getConversationList: (params?: { page?: number; limit?: number }) =>
-    apiCall<ApiResponse<PaginatedResponse<Conversation>>>('GET', '/get_list_conversation', undefined, params as Record<string, unknown>),
+    apiCall<ApiResponse<PaginatedResponse<Conversation>>>('POST', '/conversation/get_list_conversation', {
+      index: toIndex(params?.page, params?.limit),
+      count: params?.limit ?? 20,
+    }),
 
   getConversationDetail: (conversationId: string, params?: { page?: number; limit?: number }) =>
-    apiCall<ApiResponse<PaginatedResponse<Message>>>('GET', '/get_conversation_detail', undefined, { conversation_id: conversationId, ...params } as Record<string, unknown>),
+    apiCall<ApiResponse<PaginatedResponse<Message>>>('POST', '/conversation/get_conversation', {
+      conversation_id: conversationId,
+      index: toIndex(params?.page, params?.limit),
+      count: params?.limit ?? 20,
+    }),
 
-  markMessageRead: (conversationId: string) =>
-    apiCall<ApiResponse<null>>('POST', '/set_read_message', { conversation_id: conversationId }),
+  markMessageRead: (partnerId: string | number) =>
+    apiCall<ApiResponse<null>>('POST', '/conversation/set_read_message', { partner_id: partnerId }),
 };
 
 // ─── Balance ──────────────────────────────────────────────────────────────────
@@ -46,36 +70,13 @@ export const balanceApi = {
     apiCall<ApiResponse<{ balance: number }>>('POST', '/wallets/get_current_balance'),
 
   getHistory: (params?: { index?: number; count?: number }) =>
-    apiCall<ApiResponse<PaginatedResponse<BalanceTransaction>>>('POST', '/wallets/get_balance_history', params),
-
-  createWithdrawRequest: (body: { amount: number; note?: string }) =>
-    apiCall<ApiResponse<WithdrawRequest>>('POST', '/create_withdraw_request', body),
-
-  getWithdrawRequest: (requestId: string) =>
-    apiCall<ApiResponse<WithdrawRequest>>('GET', '/get_withdraw_request', undefined, { request_id: requestId }),
-
-  handleWithdrawRequest: (requestId: string, action: 'approve' | 'reject', note?: string) =>
-    apiCall<ApiResponse<null>>('POST', '/set_request_withdraw', { request_id: requestId, action, note }),
+    apiCall<ApiResponse<PaginatedResponse<BalanceTransaction>>>('POST', '/wallets/get_balance_history', {
+      index: params?.index ?? 0,
+      count: params?.count ?? 20,
+    }),
 };
 
-// ─── Rewards ─────────────────────────────────────────────────────────────────
-
-export const rewardsApi = {
-  uploadVideo: (body: { file_name: string; mime_type: string; base64?: string }) =>
-    apiCall<ApiResponse<{ upload_url: string; video_url: string }>>('POST', '/upload_video', body),
-
-  createAppeal: (body: {
-    video_url: string;
-    images?: string[];
-    description?: string;
-    appealed_amount?: number;
-  }) => apiCall<ApiResponse<RewardAppeal>>('POST', '/create_reward_appeal', body),
-};
-
-// ─── Cart (Local Only) ────────────────────────────────────────────────────────
-
-export const cartApi = {
-  // Tạm thời loại bỏ để xử lý local:
-  // addToCart: (body: { product_id: string; quantity: number }) =>
-  //   apiCall<ApiResponse<{ cart_id: string }>>('POST', '/add_to_cart', body),
-};
+// LƯU Ý: ĐÃ BỎ `rewardsApi` (/rewards/*) và `cartApi` (/order/get_cart, add_cart, …)
+// vì các path này KHÔNG tồn tại trong 68 API server (xem scripts/openapi.json).
+// Giữ lại sẽ gọi 404. Server không có giỏ hàng phía server lẫn quy trình thưởng riêng;
+// nếu cần, hãy dùng đúng endpoint server thật khi backend bổ sung.

@@ -38,7 +38,7 @@ export function WalletView() {
       if (historyResult.status === 'fulfilled' && historyResult.value) {
         const historyRes = historyResult.value;
         if ((historyRes as any).code === '9994' || historyRes.data?.items?.length === 0) {
-          setHistoryMessage('Quỹ đen giấu vợ ...');
+          setHistoryMessage('Chưa có giao dịch nào.');
           setHistory([]);
         } else if (historyRes.data?.items) {
           setHistory(historyRes.data.items);
@@ -47,12 +47,12 @@ export function WalletView() {
           setHistoryMessage('Không có lịch sử giao dịch.');
         }
       } else {
-        setHistoryMessage('Quỹ đen giấu vợ ...');
+        setHistoryMessage('Chưa có giao dịch nào.');
         console.warn('Lỗi lấy lịch sử:', historyResult.status === 'rejected' ? historyResult.reason : 'Không rõ');
       }
     } catch (error) {
       console.error('Lỗi khi tải thông tin ví:', error);
-      setHistoryMessage('Quỹ đen giấu vợ ...');
+      setHistoryMessage('Chưa có giao dịch nào.');
     } finally {
       setLoading(false);
     }
@@ -65,8 +65,8 @@ export function WalletView() {
         <Text style={styles.historyDate}>{item.created_at || item.time || ''}</Text>
       </View>
       <View style={styles.historyRight}>
-        <Text style={[styles.historyAmount, { color: item.amount > 0 ? UI_CONFIG.colors.success : UI_CONFIG.colors.danger }]}>
-          {item.amount > 0 ? '+' : ''}{item.amount ? item.amount.toLocaleString('vi-VN') : 0}
+        <Text style={[styles.historyAmount, { color: Number(item.amount) > 0 ? UI_CONFIG.colors.success : Number(item.amount) < 0 ? UI_CONFIG.colors.danger : UI_CONFIG.colors.textSecondary }]}>
+          {Number(item.amount) > 0 ? '+' : ''}{item.amount ? Number(item.amount).toLocaleString('vi-VN') : 0}
         </Text>
       </View>
     </View>

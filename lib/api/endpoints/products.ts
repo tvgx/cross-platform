@@ -44,9 +44,6 @@ export const productsApi = {
   getListBrand: (categoryId?: number) =>
     apiCall<ApiResponse<Brand[]>>('POST', '/api/get_list_brands', { category_id: categoryId }),
 
-  checkNewItems: (since: string) =>
-    apiCall<ApiResponse<{ has_new: boolean; count: number }>>('GET', '/check_new_items', undefined, { since }),
-
   addProduct: (body: Omit<Product, 'id' | 'seller_id' | 'seller_name' | 'created_at' | 'updated_at' | 'rating' | 'rating_count' | 'like_count' | 'is_liked' | 'sold_count'>) =>
     apiCall<ApiResponse<Product>>('POST', '/api/add_product', body),
 
@@ -56,14 +53,17 @@ export const productsApi = {
   deleteProduct: (productId: string) =>
     apiCall<ApiResponse<null>>('DELETE', `/api/delete/${productId}`),
 
-  getUserListings: (userId?: string, params?: { page?: number; limit?: number }) => {
-    const body = {
+  getUserListings: (userId?: string, params?: { page?: number; limit?: number; keyword?: string; order?: string }) => {
+    const body: Record<string, unknown> = {
       user_id: userId ? parseInt(userId, 10) : 1,
       index: params?.page !== undefined && params?.limit !== undefined ? (params.page - 1) * params.limit : 0,
       count: params?.limit || 50,
-      keyword: '',
+      keyword: params?.keyword || '',
       category_id: 0
     };
+    if (params?.order) {
+      body.order = params.order;
+    }
     return apiCall<ApiResponse<ProductListItem[]>>('POST', '/api/get_user_listings', body);
   },
 };
