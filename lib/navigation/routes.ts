@@ -3,7 +3,6 @@ export const ROUTES = {
   WELCOME: '/(auth)/welcome' as any,
   LOGIN: '/(auth)/login' as any,
   SIGNUP: '/(auth)/signup' as any,
-  DECLARE_INFO: '/(auth)/declare-info' as any,
   
   // Tabs (Main Feed)
   HOME: '/(main)' as any,

@@ -25,37 +25,7 @@ if (Platform.OS !== 'web') {
       const { SyncService } = require('../../services/SyncService');
       await SyncService.runSyncProcess();
 
-      // Check Notification ngầm
-      const { useAuthStore } = require('../../store/auth');
-      const { messagingApi } = require('../api/endpoints/misc');
-      const { ordersApi } = require('../api/endpoints/orders');
-      const { NotificationRepository } = require('../repositories/NotificationRepository');
-      
-      const state = useAuthStore.getState();
-      if (state.isLoggedIn && state.user) {
-        // Fetch new messages
-        const convRes = await messagingApi.getConversationList({ page: 0, limit: 10 });
-        if (convRes && convRes.success && convRes.data?.items) {
-           for (const conv of convRes.data.items) {
-             if (conv.unread_count > 0 && conv.last_message && conv.last_message.sender_id !== state.user.id) {
-               const notifId = `msg_${conv.last_message.id}`;
-               const existing = NotificationRepository.getNotifications(50).find((n: any) => n.id === notifId);
-               if (!existing) {
-                 NotificationRepository.saveNotification({
-                   id: notifId,
-                   type: 'message',
-                   title: `Tin nhắn mới`,
-                   body: conv.last_message.content,
-                   data: { conversation_id: conv.id },
-                   is_read: false,
-                   created_at: conv.last_message.created_at || new Date().toISOString()
-                 });
-                 // Có thể bắn Local Push Notification tại đây nếu expo-notifications được setup
-               }
-             }
-           }
-        }
-      }
+      // Bỏ logic gọi getConversationList ngầm tại đây để đảm bảo chỉ khi nào user thao tác mới gọi API.
       
       return BackgroundTask.BackgroundTaskResult.Success;
     } catch (error) {

@@ -50,13 +50,25 @@ export function SignupView() {
       console.log('[Signup] Đang gọi API đăng ký tối giản...', signupBody);
       const res = await authApi.signup(signupBody);
 
-      if (res && (res.success || (res as any).code === '1000' || (res as any).data)) {
-        // Fallback for flat response structure
-        const dataPayload = (res as any).data || res;
-        const { tokens, user } = dataPayload;
+      if (res && res.success) {
+        let { tokens, user } = res.data;
 
         if (!user || !user.id) {
           throw new Error('Cấu trúc dữ liệu đăng ký trả về không hợp lệ (thiếu user.id)');
+        }
+
+        // Tự động gọi API đăng nhập để lấy token thật nếu máy chủ không trả về token lúc đăng ký
+        if (!tokens || !tokens.access_token) {
+          console.log('[Signup] Đang gọi API login để lấy token thật...');
+          const loginRes = await authApi.login({ phone_number: phonenumber, password });
+          if (loginRes && loginRes.success && loginRes.data?.tokens?.access_token) {
+            tokens = loginRes.data.tokens;
+            if (loginRes.data.user) {
+              user = loginRes.data.user; // Cập nhật luôn thông tin user chuẩn từ login
+            }
+          } else {
+            throw new Error('Đăng ký thành công nhưng không thể tự động đăng nhập. Vui lòng đăng nhập lại.');
+          }
         }
 
         console.log('[Signup] Đăng ký thành công từ server. User ID:', user.id);
@@ -73,7 +85,12 @@ export function SignupView() {
           {
             text: 'Bắt đầu',
             onPress: () => {
-              NavigationService.replace(ROUTES.DECLARE_INFO);
+              // Vào thẳng trang chủ trước để đảm bảo root là HOME
+              NavigationService.replace(ROUTES.HOME);
+              // Mở đè trang sửa thông tin lên, người dùng có thể bấm Back hoặc tab khác để bỏ qua
+              setTimeout(() => {
+                NavigationService.navigate(ROUTES.EDIT_PERSONAL_INFO);
+              }, 100);
             }
           }
         ]);

@@ -16,7 +16,9 @@
       }
     },
     "android": {
+      "usesCleartextTraffic": true,
       "permissions": [
+        "INTERNET",
         "ACCESS_NETWORK_STATE",
         "RECEIVE_BOOT_COMPLETED"
       ],

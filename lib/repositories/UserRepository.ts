@@ -154,5 +154,101 @@ export const UserRepository = {
     } catch (e) {
       console.error('[UserRepo] Lỗi lưu user vào SQLite:', e);
     }
+  },
+
+  /**
+   * Theo dõi người dùng (người bán).
+   */
+  followUser(followerId: string, followedId: string): void {
+    try {
+      const id = `${followerId}_${followedId}`;
+      db.runSync(
+        `INSERT OR REPLACE INTO Follows (id, follower_id, followed_id, sync_status, created_at)
+         VALUES (?, ?, ?, 'pending_sync', ?)`,
+        [id, followerId, followedId, new Date().toISOString()]
+      );
+    } catch (e) {
+      console.error('[UserRepo] Lỗi khi theo dõi người dùng:', e);
+    }
+  },
+
+  /**
+   * Bỏ theo dõi người dùng.
+   */
+  unfollowUser(followerId: string, followedId: string): void {
+    try {
+      db.runSync(
+        `DELETE FROM Follows WHERE follower_id = ? AND followed_id = ?`,
+        [followerId, followedId]
+      );
+    } catch (e) {
+      console.error('[UserRepo] Lỗi khi bỏ theo dõi người dùng:', e);
+    }
+  },
+
+  /**
+   * Kiểm tra xem đang có theo dõi không.
+   */
+  isFollowing(followerId: string, followedId: string): boolean {
+    try {
+      const row = db.getFirstSync<{ id: string }>(
+        `SELECT id FROM Follows WHERE follower_id = ? AND followed_id = ?`,
+        [followerId, followedId]
+      );
+      return !!row;
+    } catch (e) {
+      console.error('[UserRepo] Lỗi kiểm tra theo dõi:', e);
+      return false;
+    }
+  },
+
+  /**
+   * Lấy danh sách người bán (users) đang theo dõi.
+   */
+  getFollowedSellers(followerId: string): User[] {
+    try {
+      const rows = db.getAllSync<any>(
+        `SELECT u.* FROM Users u
+         INNER JOIN Follows f ON u.id = f.followed_id
+         WHERE f.follower_id = ?`,
+        [followerId]
+      );
+      return rows.map(row => UserHelper.parseUser(row));
+    } catch (e) {
+      console.error('[UserRepo] Lỗi lấy danh sách người bán đã theo dõi:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Đưa tác vụ theo dõi vào hàng đợi đồng bộ.
+   */
+  queueFollowUser(followerId: string, followedId: string, isFollowing: boolean): void {
+    try {
+      const { SyncQueueRepository } = require('./SyncQueueRepository');
+      SyncQueueRepository.addSyncTask({
+        id: `follow_${followerId}_${followedId}_${Date.now()}`,
+        action: isFollowing ? 'FOLLOW_USER' : 'UNFOLLOW_USER',
+        target_id: followedId,
+        payload: JSON.stringify({ user_id: followedId, action: isFollowing ? 'follow' : 'unfollow' }),
+        priority: 1,
+      });
+    } catch (e) {
+      console.error('[UserRepo] Lỗi đưa tác vụ theo dõi vào hàng đợi:', e);
+    }
+  },
+
+  /**
+   * Đánh dấu trạng thái theo dõi là đã đồng bộ.
+   */
+  markFollowSynced(followerId: string, followedId: string): void {
+    try {
+      db.runSync(
+        "UPDATE Follows SET sync_status = 'synced' WHERE follower_id = ? AND followed_id = ?",
+        [followerId, followedId]
+      );
+    } catch (e) {
+      console.error('[UserRepo] Lỗi đánh dấu đồng bộ theo dõi:', e);
+    }
   }
 };

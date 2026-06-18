@@ -11,6 +11,7 @@ import { SyncService } from '../services/SyncService';
 import { useAppStore } from '../store/app';
 import { useNetworkStore } from '../store/network';
 import { useSyncQueueStore } from '../store/syncQueue';
+import { StickerService } from '../lib/services/StickerService';
 
 import { useNotificationPoller } from '../hooks/useNotificationPoller';
 
@@ -48,6 +49,9 @@ export default function RootLayout() {
 
     // Initialize SyncService listeners
     SyncService.init();
+
+    // Fetch stickers if needed
+    StickerService.fetchAndStoreStickersIfNeeded();
 
     // Register background fetch task
     registerBackgroundSyncAsync();

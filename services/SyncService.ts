@@ -169,9 +169,20 @@ export const SyncService = {
       formData.append('post_id', postId);
 
       // Upload Multipart Form Data thực tế (endpoint server: /upload/file)
-      await apiCall('POST', '/upload/file', formData, {
+      const uploadRes = await apiCall<any>('POST', '/upload/file', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
+
+      const url = uploadRes?.data?.url || '';
+
+      // Sau khi upload file xong, gọi API add_reward_proof
+      if (url) {
+        await apiCall('POST', '/rewards/add_reward_proof', {
+           description: post.title ? `${post.title}\n${post.description}` : post.description,
+           image_url: post.media_url.endsWith('.mp4') ? '' : url,
+           video_url: post.media_url.endsWith('.mp4') ? url : ''
+        });
+      }
 
       // 1. Cập nhật trạng thái thông qua PostRepository
       PostRepository.markPostSynced(postId);

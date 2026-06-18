@@ -45,15 +45,46 @@ export const ProductRepository = {
     const mergedFilters: ProductFilters = { ...filters, keyword, page, limit };
     
     try {
-      const catalogStore = useCatalogStore.getState();
-      if (forceRefresh || catalogStore.isStale()) {
+      const networkStore = useNetworkStore.getState();
+      
+      // 1. Thử gọi API trước nếu có mạng (ưu tiên API vì tìm kiếm trên server thông minh hơn)
+      if (networkStore.isOnline || forceRefresh) {
         try {
-          await this.fetchAndSyncProducts(mergedFilters);
+          const response = await productsApi.getListProducts(mergedFilters);
+          if (response.success && response.data) {
+            const items = Array.isArray(response.data) 
+              ? response.data 
+              : (response.data && Array.isArray((response.data as any).items) ? (response.data as any).items : []);
+            
+            // Lưu ngầm vào SQLite dã chiến để dùng offline sau này
+            this.cacheProductsLocally(items);
+            
+            // Format trả về luôn kết quả từ server
+            return items.map((p: any) => ({
+              id: String(p.id),
+              name: p.title || p.name || 'Không có tên',
+              price: Number(p.price) || 0,
+              price_new: Number(p.price_new) || 0,
+              image: p.images || p.image || null,
+              video: p.video || null,
+              seller_id: p.seller_id ? String(p.seller_id) : '1',
+              seller_name: p.seller_name || p.seller?.fullname || 'Nhà cung cấp quân nhu',
+              rating: p.rating || 5.0,
+              like: p.like_count || p.like || 0,
+              comment: p.comment || 0,
+              is_liked: p.is_liked === true || p.is_liked === 1 || p.is_liked === '1',
+              stock: p.stock !== undefined ? p.stock : (p.is_stock ? 100 : 0),
+              is_stock: p.is_stock === 1 || p.is_stock === true,
+              sold_count: p.sold_count || 0,
+              category_id: p.category_id ? String(p.category_id) : (p.category?.id ? String(p.category.id) : '1'),
+            }));
+          }
         } catch (e) {
           console.warn('[ProductRepo] Lỗi tải search từ Server (Offline/Error), fallback về SQLite:', e);
         }
       }
       
+      // 2. Fallback về SQLite nếu offline hoặc lỗi API
       return this.getLocalProducts(mergedFilters);
     } catch (error) {
       console.error('[ProductRepo] Lỗi trong searchProducts:', error);
@@ -124,7 +155,7 @@ export const ProductRepository = {
       const rows = db.getAllSync<any>(query, params);
       
       return rows.map(row => ({
-        id: row.id,
+        id: String(row.id),
         name: row.title || row.name,
         price: row.price,
         price_new: row.price_new,

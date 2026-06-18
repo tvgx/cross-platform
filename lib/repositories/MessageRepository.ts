@@ -46,6 +46,8 @@ export const MessageRepository = {
             conversation_id: lastMsg.conversation_id,
             sender_id: lastMsg.sender_id,
             content: lastMsg.content,
+            image_url: lastMsg.image_url,
+            video_url: lastMsg.video_url,
             created_at: String(lastMsg.created_at)
           } : undefined,
           unread_count: 0,
@@ -74,7 +76,9 @@ export const MessageRepository = {
         conversation_id: r.conversation_id,
         sender_id: r.sender_id,
         content: r.content,
-        type: 'text',
+        image_url: r.image_url,
+        video_url: r.video_url,
+        type: (r.image_url || r.video_url) ? (r.image_url ? 'image' : 'video') : 'text',
         is_read: true,
         created_at: new Date(r.created_at || Date.now()).toISOString()
       }));
@@ -93,14 +97,16 @@ export const MessageRepository = {
     sender_id: string;
     content: string;
     created_at: number;
+    type?: string;
+    image_url?: string;
   }): void {
     try {
       db.withTransactionSync(() => {
         // A. Lưu tin nhắn vào SQLite
         db.runSync(
-          `INSERT INTO Messages (id, conversation_id, sender_id, content, sync_status, created_at) 
-           VALUES (?, ?, ?, ?, 'pending_sync', ?)`,
-          [msg.id, msg.conversation_id, msg.sender_id, msg.content, msg.created_at]
+          `INSERT INTO Messages (id, conversation_id, sender_id, content, image_url, sync_status, created_at) 
+           VALUES (?, ?, ?, ?, ?, 'pending_sync', ?)`,
+          [msg.id, msg.conversation_id, msg.sender_id, msg.content, msg.image_url || null, msg.created_at]
         );
 
         // B. Cập nhật thời gian Last Update của cuộc trò chuyện
@@ -113,7 +119,8 @@ export const MessageRepository = {
         const queueId = 'q_msg_' + Math.random().toString(36).substr(2, 9);
         const syncPayload = JSON.stringify({
           conversation_id: msg.conversation_id,
-          content: msg.content
+          content: msg.image_url || msg.content,
+          type: msg.type || 'text'
         });
 
         db.runSync(

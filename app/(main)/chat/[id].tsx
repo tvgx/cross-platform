@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Keyboard, Image, ActivityIndicator } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeArea } from '../../../components/layout/SafeArea';
 import { CustomAppBar } from '../../../components/navigation/CustomAppBar';
@@ -10,6 +11,8 @@ import { MessageRepository } from '../../../lib/repositories/MessageRepository';
 import { messagingApi } from '../../../lib/api/endpoints/misc';
 import { IconSymbol } from '../../../components/ui/icon-symbol';
 import { Message } from '../../../types';
+import { uploadApi } from '../../../lib/api/endpoints/upload';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ChatDetailPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,6 +22,7 @@ export default function ChatDetailPage() {
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   
   // Custom header title logic here (could fetch participant info)
@@ -73,12 +77,10 @@ export default function ChatDetailPage() {
       created_at: new Date().toISOString()
     };
 
-    // Optimistic update
     setMessages(prev => [newMsg, ...prev]);
     setText('');
     Keyboard.dismiss();
 
-    // Save to SQLite & Queue (MessageRepository handles this)
     MessageRepository.sendMessage({
       id: msgId,
       conversation_id: id,
@@ -86,10 +88,59 @@ export default function ChatDetailPage() {
       content: newMsg.content,
       created_at: Date.now()
     });
-    
-    // Attempt immediate send if online
-    // Actually, backgroundSync or SyncQueue processor will handle it,
-    // but we could also call api here directly for better UX.
+  };
+
+  const handlePickImage = async () => {
+    if (!user || !id) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      try {
+        setIsUploading(true);
+        // Upload file
+        const uploadRes = await uploadApi.uploadFile({
+          uri: asset.uri,
+          name: asset.fileName || `image_${Date.now()}.jpg`,
+          type: asset.mimeType || 'image/jpeg',
+        });
+
+        if (uploadRes && uploadRes.success && uploadRes.data?.url) {
+          const imageUrl = uploadRes.data.url;
+          const msgId = `local_${Date.now()}`;
+          const newMsg = {
+            id: msgId,
+            conversation_id: id,
+            sender_id: user.id,
+            content: imageUrl, // có thể là URL hoặc mô tả
+            type: 'image' as const,
+            image_url: imageUrl,
+            is_read: true,
+            created_at: new Date().toISOString()
+          };
+
+          setMessages(prev => [newMsg, ...prev]);
+
+          MessageRepository.sendMessage({
+            id: msgId,
+            conversation_id: id,
+            sender_id: user.id,
+            content: 'Hình ảnh', // Text preview
+            type: 'image',
+            image_url: imageUrl,
+            created_at: Date.now()
+          });
+        }
+      } catch (error) {
+        console.error('Lỗi upload ảnh:', error);
+      } finally {
+        setIsUploading(false);
+      }
+    }
   };
 
   const renderItem = ({ item }: { item: Message }) => {
@@ -98,11 +149,16 @@ export default function ChatDetailPage() {
       <View style={[styles.bubbleWrapper, isMe ? styles.bubbleWrapperRight : styles.bubbleWrapperLeft]}>
         <View style={[
           styles.bubble, 
-          isMe ? { backgroundColor: currentColors.primary } : { backgroundColor: currentColors.surfaceLighter }
+          isMe ? { backgroundColor: currentColors.primary } : { backgroundColor: currentColors.surfaceLighter },
+          item.type === 'image' && styles.bubbleImage
         ]}>
-          <Text style={[styles.bubbleText, isMe ? { color: '#fff' } : { color: currentColors.text }]}>
-            {item.content}
-          </Text>
+          {item.type === 'image' || (item as any).image_url ? (
+            <Image source={{ uri: (item as any).image_url || item.content }} style={styles.messageImage} />
+          ) : (
+            <Text style={[styles.bubbleText, isMe ? { color: '#fff' } : { color: currentColors.text }]}>
+              {item.content}
+            </Text>
+          )}
         </View>
         <Text style={[styles.timeText, { color: currentColors.textLight }]}>
           {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -129,6 +185,9 @@ export default function ChatDetailPage() {
         />
         
         <View style={[styles.inputContainer, { backgroundColor: currentColors.surface, borderTopColor: currentColors.border }]}>
+          <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} disabled={isUploading}>
+            {isUploading ? <ActivityIndicator size="small" color={currentColors.primary} /> : <Ionicons name="image-outline" size={24} color={currentColors.textSecondary} />}
+          </TouchableOpacity>
           <TextInput
             style={[styles.input, { color: currentColors.text, backgroundColor: currentColors.background }]}
             placeholder="Nhập tin nhắn..."
@@ -169,6 +228,16 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 16,
   },
+  bubbleImage: {
+    padding: 4,
+    backgroundColor: 'transparent',
+  },
+  messageImage: {
+    width: 200,
+    height: 200,
+    borderRadius: 12,
+    resizeMode: 'cover',
+  },
   bubbleText: {
     fontSize: 16,
   },
@@ -192,6 +261,13 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 10,
     fontSize: 16,
+  },
+  attachButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 8,
+    marginRight: 4,
+    marginBottom: 4,
   },
   sendButton: {
     width: 40,

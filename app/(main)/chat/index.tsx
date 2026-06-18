@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeArea } from '../../../components/layout/SafeArea';
 import { CustomAppBar } from '../../../components/navigation/CustomAppBar';
@@ -56,6 +57,18 @@ export default function ChattingPage() {
     const avatar = otherParticipant?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
     const lastMsg = item.last_message;
 
+    // Định dạng thời gian
+    const formatTime = (timestamp?: string) => {
+      if (!timestamp) return '';
+      const date = new Date(Number(timestamp) > 1e11 ? Number(timestamp) : timestamp);
+      if (isNaN(date.getTime())) return '';
+      const now = new Date();
+      if (date.toDateString() === now.toDateString()) {
+        return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      }
+      return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    };
+
     return (
       <TouchableOpacity 
         style={[styles.conversationItem, { backgroundColor: currentColors.surface, borderBottomColor: currentColors.border }]}
@@ -63,17 +76,24 @@ export default function ChattingPage() {
       >
         <Image source={{ uri: avatar }} style={styles.avatar} />
         <View style={styles.infoContainer}>
-          <Text style={[styles.nameText, { color: currentColors.text }]} numberOfLines={1}>{name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={[styles.nameText, { color: currentColors.text }]} numberOfLines={1}>{name}</Text>
+            <Text style={[styles.timeText, { color: currentColors.textSecondary }]}>{formatTime(lastMsg?.created_at)}</Text>
+          </View>
           {lastMsg && (
-            <Text 
-              style={[
-                styles.lastMsgText, 
-                { color: lastMsg.sender_id === user?.id ? currentColors.textSecondary : currentColors.text }
-              ]} 
-              numberOfLines={1}
-            >
-              {lastMsg.sender_id === user?.id ? 'Bạn: ' : ''}{lastMsg.content}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {(lastMsg as any).image_url && <Ionicons name="image" size={14} color={currentColors.textSecondary} style={{ marginRight: 4 }} />}
+              <Text 
+                style={[
+                  styles.lastMsgText, 
+                  { color: lastMsg.sender_id === user?.id ? currentColors.textSecondary : currentColors.text }
+                ]} 
+                numberOfLines={1}
+              >
+                {lastMsg.sender_id === user?.id ? 'Bạn: ' : ''}
+                {(lastMsg as any).image_url ? 'Hình ảnh' : lastMsg.content}
+              </Text>
+            </View>
           )}
         </View>
       </TouchableOpacity>
@@ -121,13 +141,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  nameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   nameText: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
+    flex: 1,
+  },
+  timeText: {
+    fontSize: 12,
+    marginLeft: 8,
   },
   lastMsgText: {
     fontSize: 14,
+    flex: 1,
   },
   emptyContainer: {
     padding: 20,

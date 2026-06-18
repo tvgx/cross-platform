@@ -59,7 +59,7 @@ export const closeDatabase = (): void => {
  * thiết bị migrate (drop & recreate) ở lần mở app kế tiếp — vá được lỗi lệch
  * schema kiểu "table X has no column named ...".
  */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 6;
 
 /**
  * Schema cục bộ bám theo thiết kế server (docs/IT4788.sql) nhưng KHÔNG đổi tên
@@ -443,6 +443,36 @@ export const initDB = () => {
         data TEXT,
         is_read BOOLEAN DEFAULT 0,
         created_at TEXT
+      );
+    `);
+
+    // 21. Táº¡o báº£ng Follows
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS Follows (
+        id TEXT PRIMARY KEY,
+        follower_id TEXT,
+        followed_id TEXT,
+        sync_status TEXT DEFAULT 'pending_sync',
+        created_at TEXT,
+        FOREIGN KEY (follower_id) REFERENCES Users (id) ON DELETE CASCADE,
+        FOREIGN KEY (followed_id) REFERENCES Users (id) ON DELETE CASCADE
+      );
+    `);
+
+    // 22. Tạo bảng Stickers
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS Stickers (
+        id TEXT PRIMARY KEY,
+        url TEXT,
+        category TEXT
+      );
+    `);
+
+    // 23. Tạo bảng KeyValueStore (cho zustand storage)
+    db.execSync(`
+      CREATE TABLE IF NOT EXISTS KeyValueStore (
+        key TEXT PRIMARY KEY,
+        value TEXT
       );
     `);
 

@@ -34,8 +34,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
 
   checkBackendHealth: async () => {
     try {
-      // Ping endpoint công khai có thật trên server ("/" — App root) để kiểm tra backend.
-      // Coi mọi HTTP response (kể cả 4xx) là "backend sống"; chỉ lỗi mạng mới là chết.
+      // Gọi API không trả về data (Root endpoint "/") để kiểm tra mạng, có sẵn trên server
       await axios.get(BASE_URL, { timeout: 5000 });
       set({ isBackendAlive: true });
       console.log('[Network] Backend is ALIVE.');

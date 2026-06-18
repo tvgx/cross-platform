@@ -1,9 +1,36 @@
 import { apiCall } from '../client';
 import type { ApiResponse, AuthTokens, User } from '../../../types';
 
+// Helper to normalize auth responses from flat to nested structure
+function normalizeAuthResponse(res: any): ApiResponse<{ tokens: AuthTokens; user: User }> {
+  if (res && res.success) {
+    const data = res.data || res;
+    if (!data.tokens && data.token) {
+      data.tokens = { access_token: data.token };
+    }
+    if (!data.user && data.id) {
+      data.user = {
+        id: String(data.id),
+        username: data.username,
+        full_name: data.full_name || data.username || 'Chiến sĩ',
+        avatar: data.avatar,
+        rank: data.rank || 'Chiến sĩ',
+        virtual_balance: data.virtual_balance || 0,
+        is_seller: data.is_seller || false,
+        created_at: data.created_at || new Date().toISOString(),
+        ...data // Giữ lại các trường khác như wallet_id, active
+      };
+    }
+    res.data = data;
+  }
+  return res as ApiResponse<{ tokens: AuthTokens; user: User }>;
+}
+
 export const authApi = {
-  login: (body: { phone_number: string; password: string }) =>
-    apiCall<ApiResponse<{ tokens: AuthTokens; user: User }>>('POST', '/auth/login', body),
+  login: async (body: { phone_number: string; password: string }) => {
+    const res = await apiCall<any>('POST', '/auth/login', body);
+    return normalizeAuthResponse(res);
+  },
 
   logout: () =>
     apiCall<ApiResponse<null>>('POST', '/auth/logout'),
@@ -12,11 +39,14 @@ export const authApi = {
     apiCall<ApiResponse<User>>('GET', '/auth/me'),
 
 
-  signup: (body: {
+  signup: async (body: {
     phone_number: string;
     password: string;
     uuid: string;
-  }) => apiCall<ApiResponse<{ tokens: AuthTokens; user: User }>>('POST', '/auth/signup', body),
+  }) => {
+    const res = await apiCall<any>('POST', '/auth/signup', body);
+    return normalizeAuthResponse(res);
+  },
 
   createResetCode: (body: { phone?: string; email?: string }) =>
     apiCall<ApiResponse<null>>('POST', '/auth/create_code_reset_password', body),

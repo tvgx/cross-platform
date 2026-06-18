@@ -1,5 +1,6 @@
 import { apiCall } from '../client';
 import { ProductRepository } from '../../repositories/ProductRepository';
+import { UserRepository } from '../../repositories/UserRepository';
 import { useAuthStore } from '../../../store/auth';
 import type {
   ApiResponse,
@@ -181,6 +182,9 @@ export const socialApi = {
   getSavedSearches: () =>
     apiCall<ApiResponse<string[]>>('POST', '/api/get_list_saved_search', {}),
 
+  delSavedSearch: (params: { keyword?: string; search_id?: number }) =>
+    apiCall<ApiResponse<null>>('POST', '/api/del_saved_search', params),
+
   // News
   getNewsList: (params?: { page?: number; limit?: number }) => {
     const page = params?.page || 1;
@@ -195,11 +199,35 @@ export const socialApi = {
     apiCall<ApiResponse<NewsItem>>('GET', `/News/${newsId}`),
 
   // Follow / Block
-  setFollow: (body: { user_id: string; action: 'follow' | 'unfollow' }) =>
-    apiCall<ApiResponse<null>>('POST', '/set_user_follow', {
-      followee_id: parseInt(body.user_id, 10),
-      action: body.action
-    }),
+  setFollow: async (body: { user_id: string; action: 'follow' | 'unfollow' }) => {
+    const user = useAuthStore.getState().user;
+    if (user) {
+      ProductRepository.ensureUserRow(String(user.id));
+      if (body.action === 'follow') {
+        UserRepository.followUser(String(user.id), body.user_id);
+      } else {
+        UserRepository.unfollowUser(String(user.id), body.user_id);
+      }
+    }
+
+    try {
+      const res = await apiCall<ApiResponse<null>>('POST', '/set_user_follow', {
+        followee_id: parseInt(body.user_id, 10),
+        action: body.action
+      });
+      return res;
+    } catch (error: any) {
+      if (user && (error?.code === 'ERR_NETWORK' || error?.code === 'ECONNABORTED' || !error?.response)) {
+        UserRepository.queueFollowUser(String(user.id), body.user_id, body.action === 'follow');
+        return {
+          success: true,
+          data: null,
+          message: 'Đã lưu trạng thái theo dõi offline, sẽ đồng bộ khi có mạng.'
+        } as unknown as ApiResponse<null>;
+      }
+      throw error;
+    }
+  },
 
   getFollowed: (params?: { page?: number; limit?: number }) => {
     const page = params?.page || 1;

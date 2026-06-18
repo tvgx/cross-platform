@@ -105,9 +105,10 @@ apiClient.interceptors.response.use(
       removeStored('auth-storage');  // zustand persist key
       console.error(`[API RESPONSE 401] Token expired or unauthorized.`);
     } else if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || !error.response) {
-      // If it's a network error or timeout, flag the backend as dead
-      useNetworkStore.getState().setBackendAlive(false);
-      console.error(`[API NETWORK ERROR] Code: ${error.code}`);
+      console.warn(`[API NETWORK ERROR] Code: ${error.code}. Lập tức gọi api kiểm tra server...`);
+      // Thay vì set false ngay, ta gọi checkBackendHealth. 
+      // Hàm này sẽ gọi API không trả data. Nếu API đó cũng lỗi thì nó mới setBackendAlive(false).
+      await useNetworkStore.getState().checkBackendHealth();
     } else {
       console.error(`[API RESPONSE ERROR] Status: ${error.response?.status}, Data:`, error.response?.data);
     }

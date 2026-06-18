@@ -9,8 +9,10 @@ import type {
 } from '../../../types';
 
 // Helper tính offset phân trang từ page/limit.
-const toIndex = (page?: number, limit?: number) =>
-  page !== undefined && limit !== undefined ? (page - 1) * limit : 0;
+const toIndex = (page?: number, limit?: number) => {
+  if (page === undefined || limit === undefined) return 0;
+  return Math.max(0, page > 0 ? (page - 1) * limit : 0);
+};
 
 // ─── Notifications ────────────────────────────────────────────────────────────
 

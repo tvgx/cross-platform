@@ -1,7 +1,7 @@
 import { db } from '../storage/sqlite';
 import { PostHelper } from '../helpers/PostHelper';
 import { UserRepository } from './UserRepository';
-
+import { rewardsApi } from '../api/endpoints/rewards';
 export const PostRepository = {
   /**
    * Lấy danh sách bài đăng chiến tích đang chờ phê duyệt (dành cho Sĩ quan duyệt bài).
@@ -75,8 +75,11 @@ export const PostRepository = {
       let apiSuccess = false;
       try {
         console.log('[PostRepo] Đang gọi API tạo bài đăng chiến tích...');
-        const { apiCall } = require('../api/client');
-        await apiCall('POST', '/api/upload_post', post);
+        await rewardsApi.addRewardProof({
+          description: post.title ? `${post.title}\n${post.description}` : post.description,
+          image_url: post.image_url || '',
+          video_url: post.video_url || ''
+        });
         apiSuccess = true;
       } catch (err) {
         console.log('[PostRepo] Lỗi mạng hoặc backend Offline. Chuyển sang fallback cục bộ.', err);
@@ -107,11 +110,9 @@ export const PostRepository = {
         // Thêm hàng chờ đồng bộ hóa SyncQueue ngầm lên server
         const queueId = 'q_post_' + Math.random().toString(36).substr(2, 9);
         const syncPayload = JSON.stringify({
-          title: post.title,
-          description: post.description,
-          media_url: post.media_url,
-          ai_score: post.ai_score,
-          reward_coin: post.reward_coin
+          description: post.title ? `${post.title}\n${post.description}` : post.description,
+          image_url: post.image_url || '',
+          video_url: post.video_url || ''
         });
 
         db.runSync(
@@ -183,19 +184,31 @@ export const PostRepository = {
   /**
    * Nộp đơn khiếu nại (Appeal) chiến công bị từ chối dã chiến.
    */
-  submitAppeal(appeal: {
+  async submitAppeal(appeal: {
     id: string;
     proof_id: string;
     user_id: string;
     reason: string;
-  }): void {
+  }): Promise<void> {
     try {
+      let apiSuccess = false;
+      try {
+        console.log('[PostRepo] Đang gọi API khiếu nại...');
+        await rewardsApi.createRewardAppeal({
+          reward_id: Number(appeal.proof_id),
+          reason: appeal.reason
+        });
+        apiSuccess = true;
+      } catch (err) {
+        console.log('[PostRepo] Lỗi mạng khi khiếu nại. Chuyển sang fallback cục bộ.', err);
+      }
+
       db.withTransactionSync(() => {
         // A. Lưu đơn khiếu nại vào SQLite
         db.runSync(
           `INSERT INTO Appeals (id, proof_id, user_id, reason, status, sync_status) 
-           VALUES (?, ?, ?, ?, 'pending', 'pending_sync')`,
-          [appeal.id, appeal.proof_id, appeal.user_id, appeal.reason]
+           VALUES (?, ?, ?, ?, 'pending', ?)`,
+          [appeal.id, appeal.proof_id, appeal.user_id, appeal.reason, apiSuccess ? 'synced' : 'pending_sync']
         );
 
         // B. Cập nhật trạng thái bài đăng sang appealing
@@ -205,25 +218,27 @@ export const PostRepository = {
         );
 
         // C. Xếp hàng chờ đồng bộ hóa SyncQueue ngầm lên server
-        const queueId = 'q_appeal_' + Math.random().toString(36).substr(2, 9);
-        const syncPayload = JSON.stringify({
-          proof_id: appeal.proof_id,
-          reason: appeal.reason
-        });
+        if (!apiSuccess) {
+          const queueId = 'q_appeal_' + Math.random().toString(36).substr(2, 9);
+          const syncPayload = JSON.stringify({
+            reward_id: Number(appeal.proof_id),
+            reason: appeal.reason
+          });
 
-        db.runSync(
-          `INSERT INTO SyncQueue (id, action, target_id, payload, priority, retry_count, created_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            queueId,
-            'APPEAL_SUBMIT',
-            appeal.id,
-            syncPayload,
-            2,
-            0,
-            new Date().toISOString()
-          ]
-        );
+          db.runSync(
+            `INSERT INTO SyncQueue (id, action, target_id, payload, priority, retry_count, created_at) 
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+              queueId,
+              'APPEAL_SUBMIT',
+              appeal.id,
+              syncPayload,
+              2,
+              0,
+              new Date().toISOString()
+            ]
+          );
+        }
       });
       console.log(`[PostRepo] Đã nộp khiếu nại ${appeal.id} cho bài viết ${appeal.proof_id}.`);
     } catch (e) {

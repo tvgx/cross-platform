@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeArea } from '../../components/layout/SafeArea';
 import { Header } from '../../components/navigation/Header';
 import { UI_CONFIG } from '../../constants/config';
@@ -58,36 +59,48 @@ export function WalletView() {
     }
   };
 
-  const renderHistoryItem = ({ item }: { item: any }) => (
-    <View style={styles.historyItem}>
-      <View style={styles.historyLeft}>
-        <Text style={styles.historyTitle} numberOfLines={1}>{item.title || item.description || 'Giao dịch'}</Text>
-        <Text style={styles.historyDate}>{item.created_at || item.time || ''}</Text>
+  const renderHistoryItem = ({ item }: { item: any }) => {
+    const isEarn = Number(item.amount) > 0;
+    return (
+      <View style={styles.historyItem}>
+        <View style={[styles.iconContainer, { backgroundColor: isEarn ? '#E8F5E9' : '#FFEBEE' }]}>
+          <Ionicons name={isEarn ? 'arrow-down' : 'arrow-up'} size={20} color={isEarn ? UI_CONFIG.colors.success : UI_CONFIG.colors.danger} />
+        </View>
+        <View style={styles.historyLeft}>
+          <Text style={styles.historyTitle} numberOfLines={1}>{item.title || item.description || (isEarn ? 'Nhận điểm chiến tích' : 'Sử dụng điểm')}</Text>
+          <Text style={styles.historyDate}>{item.created_at || item.time || ''}</Text>
+        </View>
+        <View style={styles.historyRight}>
+          <Text style={[styles.historyAmount, { color: Number(item.amount) > 0 ? UI_CONFIG.colors.success : Number(item.amount) < 0 ? UI_CONFIG.colors.danger : UI_CONFIG.colors.textSecondary }]}>
+            {Number(item.amount) > 0 ? '+' : ''}{item.amount ? Number(item.amount).toLocaleString('vi-VN') : 0}
+          </Text>
+        </View>
       </View>
-      <View style={styles.historyRight}>
-        <Text style={[styles.historyAmount, { color: Number(item.amount) > 0 ? UI_CONFIG.colors.success : Number(item.amount) < 0 ? UI_CONFIG.colors.danger : UI_CONFIG.colors.textSecondary }]}>
-          {Number(item.amount) > 0 ? '+' : ''}{item.amount ? Number(item.amount).toLocaleString('vi-VN') : 0}
-        </Text>
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeArea edges={['top']}>
-      <Header title="VÍ CỦA TÔI" leftIcon="arrow-back" showNotification={false} />
+      <Header title="VÍ CHIẾN TÍCH" leftIcon="arrow-back" showNotification={false} />
 
       <View style={styles.container}>
         {/* Số dư hiện tại */}
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Số dư hiện tại</Text>
+          <Ionicons name="shield-checkmark" size={40} color="#fff" style={styles.cardIcon} />
+          <Text style={styles.balanceLabel}>Điểm chiến tích hiện có</Text>
           <Text style={styles.balanceValue}>
             {currentBalance.toLocaleString('vi-VN')}
           </Text>
-          <Text style={styles.currencyNote}>(Đơn vị tiền tệ ứng dụng)</Text>
+          <Text style={styles.currencyNote}>*Quy đổi từ hệ thống kiểm duyệt chiến tích</Text>
+          
+          <TouchableOpacity style={styles.earnButton}>
+            <Ionicons name="add-circle-outline" size={20} color="#fff" />
+            <Text style={styles.earnButtonText}>Đăng chiến tích mới</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Lịch sử đơn đã mua / giao dịch */}
-        <Text style={styles.sectionTitle}>Lịch sử giao dịch</Text>
+        {/* Lịch sử giao dịch */}
+        <Text style={styles.sectionTitle}>Lịch sử biến động</Text>
 
         {loading ? (
           <ActivityIndicator size="large" color={UI_CONFIG.colors.primary} style={{ marginTop: 20 }} />
@@ -117,33 +130,62 @@ const styles = StyleSheet.create({
   balanceCard: {
     margin: UI_CONFIG.spacing.lg,
     padding: UI_CONFIG.spacing.xl,
-    backgroundColor: UI_CONFIG.colors.primary,
+    backgroundColor: '#2E4C3B', // Màu xanh lục quân sự
     borderRadius: UI_CONFIG.borderRadius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: UI_CONFIG.colors.primary,
+    shadowColor: '#1A3324',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  cardIcon: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    opacity: 0.1,
+    transform: [{ scale: 4 }],
   },
   balanceLabel: {
-    color: '#fff',
+    color: '#E8F5E9',
     fontSize: UI_CONFIG.typography.sizes.md,
     opacity: 0.9,
     marginBottom: 8,
+    fontWeight: '600',
   },
   balanceValue: {
     color: '#fff',
-    fontSize: 36,
-    fontWeight: 'bold',
+    fontSize: 40,
+    fontWeight: '900',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   currencyNote: {
-    color: '#fff',
+    color: '#A5D6A7',
     fontSize: UI_CONFIG.typography.sizes.xs,
-    opacity: 0.8,
-    marginTop: 4,
+    marginTop: 6,
     fontStyle: 'italic',
+  },
+  earnButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  earnButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    marginLeft: 6,
+    fontSize: UI_CONFIG.typography.sizes.sm,
   },
   sectionTitle: {
     fontSize: UI_CONFIG.typography.sizes.lg,
@@ -170,6 +212,14 @@ const styles = StyleSheet.create({
   },
   historyLeft: {
     flex: 1,
+    marginRight: UI_CONFIG.spacing.md,
+  },
+  iconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: UI_CONFIG.spacing.md,
   },
   historyTitle: {

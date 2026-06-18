@@ -40,10 +40,17 @@ export const useSearchStore = create<SearchState>()(
             (k) => k.toLowerCase() !== keyword.toLowerCase()
           )
         }));
+        
+        socialApi.delSavedSearch({ keyword }).catch((err) => {
+          console.warn('[SearchStore] Failed to delete search from server', err);
+        });
       },
 
       clearRecentSearches: () => {
         set({ recentSearches: [] });
+        socialApi.delSavedSearch({ search_id: 0 }).catch((err) => {
+          console.warn('[SearchStore] Failed to clear searches from server', err);
+        });
       },
 
       hydrateFromServer: async () => {

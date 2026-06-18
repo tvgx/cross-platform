@@ -21,18 +21,23 @@ export function useNotificationPoller() {
       // 1. Fetch Conversations
       const convRes = await messagingApi.getConversationList({ page: 0, limit: 50 });
       if (convRes && convRes.success && convRes.data?.items) {
-        const convos = convRes.data.items;
+        // Chỉ lưu và hiển thị thông báo cho những cuộc hội thoại mà user đang đăng nhập thực sự tham gia
+        const convos = convRes.data.items.filter((conv: any) => {
+          if (!conv.participants) return true;
+          return conv.participants.some((p: any) => String(p.id) === String(user.id));
+        });
+
         // Save to SQLite
         MessageRepository.saveConversations(user.id, convos);
 
         const newNotifications = [];
         for (const conv of convos) {
-          if (conv.unread_count > 0 && conv.last_message && conv.last_message.sender_id !== user.id) {
+          if (conv.unread_count > 0 && conv.last_message && String(conv.last_message.sender_id) !== String(user.id)) {
             const notifId = `msg_${conv.last_message.id}`;
             // Check if already in SQLite to avoid duplicate notification
             const existing = NotificationRepository.getNotifications(50).find(n => n.id === notifId);
             if (!existing) {
-              const sender = conv.participants?.find(p => p.id === conv.last_message!.sender_id);
+              const sender = conv.participants?.find(p => String(p.id) === String(conv.last_message!.sender_id));
               const senderName = sender?.full_name || (sender?.firstname && sender?.lastname ? `${sender.firstname} ${sender.lastname}` : sender?.username) || 'Người dùng';
               const notif = {
                 id: notifId,
@@ -59,13 +64,9 @@ export function useNotificationPoller() {
         const orders = ordersRes.data.items;
         const newNotifications = [];
         for (const order of orders) {
-          // Check if status changed in SQLite. But wait, we didn't save all purchases.
-          // For now, assume we check if an order notification exists for this status
           const notifId = `order_${order.id}_${order.status}`;
           const existing = NotificationRepository.getNotifications(50).find(n => n.id === notifId);
           if (!existing) {
-            // It's a new status! But to avoid spamming past orders on first load, 
-            // maybe only notify if updated_at is within last 1 day.
             const updatedTime = new Date(order.updated_at).getTime();
             if (Date.now() - updatedTime < 86400000) {
               const notif = {
@@ -98,26 +99,18 @@ export function useNotificationPoller() {
     useNotificationsStore.getState().setNotifications(storedNotifs);
 
     if (isLoggedIn) {
+      // Chỉ fetch 1 lần khi mount, TẮT TÍNH NĂNG TỰ ĐỘNG GỌI SAU 1 KHOẢNG THỜI GIAN
       fetchAndDiff();
-      pollerRef.current = setInterval(fetchAndDiff, POLL_INTERVAL);
     }
 
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active' && isLoggedIn) {
+        // Fetch 1 lần khi app quay lại màn hình chính (foreground)
         fetchAndDiff();
-        if (!pollerRef.current) {
-          pollerRef.current = setInterval(fetchAndDiff, POLL_INTERVAL);
-        }
-      } else if (nextAppState.match(/inactive|background/)) {
-        if (pollerRef.current) {
-          clearInterval(pollerRef.current);
-          pollerRef.current = null;
-        }
       }
     });
 
     return () => {
-      if (pollerRef.current) clearInterval(pollerRef.current);
       subscription.remove();
     };
   }, [isLoggedIn, user]);

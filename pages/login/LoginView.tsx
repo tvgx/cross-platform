@@ -51,26 +51,11 @@ export function LoginView() {
       console.log('[Auth] Đang gọi API đăng nhập từ server...');
       const res = await authApi.login({ phone_number: phoneNumber, password });
 
-      if (res && (res.success || (res as any).code === '1000' || (res as any).data)) {
-        const rawData = (res as any).data || res;
+      if (res && res.success) {
+        const user = res.data.user;
+        const tokens = res.data.tokens;
 
-        // Handle both expected formats: nested {user, tokens} or flat {id, username, token}
-        const user = rawData.user || {
-          id: rawData.id || String(Math.random()),
-          username: rawData.username || phoneNumber,
-          full_name: rawData.username || 'Chiến sĩ',
-          avatar: rawData.avatar,
-          rank: 'Chiến sĩ', // Default
-          virtual_balance: 0,
-          is_seller: false,
-          created_at: new Date().toISOString()
-        };
-
-        const tokens = rawData.tokens || {
-          access_token: rawData.token
-        };
-
-        if (!user.id) {
+        if (!user || !user.id) {
           throw new Error('Dữ liệu trả về không hợp lệ (thiếu user.id)');
         }
 

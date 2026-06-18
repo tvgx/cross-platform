@@ -83,7 +83,7 @@ export const TacticalImage = ({
   return (
     <View style={[styles.container, containerStyle]}>
       <Image 
-        source={uri ? { uri } : placeholderSource}
+        source={typeof uri === 'string' && uri.trim() !== '' ? { uri } : placeholderSource}
         placeholder={placeholderSource}
         style={[styles.image, style]}
         contentFit={contentFit}

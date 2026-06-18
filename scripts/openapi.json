@@ -535,7 +535,7 @@
             "name": "level",
             "required": false,
             "in": "query",
-            "description": "level mã địa chỉ ",
+            "description": "level mã địa chỉ",
             "schema": {
               "default": 0,
               "type": "number"
@@ -610,7 +610,7 @@
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -627,6 +627,62 @@
           }
         ],
         "summary": "Phí ship",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/order/provinces": {
+      "get": {
+        "operationId": "OrdersController_getProvinces",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lấy danh sách tỉnh/thành phố",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/order/wards": {
+      "get": {
+        "operationId": "OrdersController_getWards",
+        "parameters": [
+          {
+            "name": "province_id",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lấy danh sách phường/xã theo tỉnh/thành phố",
         "tags": [
           "Orders"
         ]
@@ -663,8 +719,18 @@
       "post": {
         "operationId": "OrdersController_addOrderAddress",
         "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddOrderAddressDto"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {
+          "201": {
             "description": "",
             "content": {
               "application/json": {
@@ -843,6 +909,35 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/GetListPurchasesDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/order/get_list_purchases_seller": {
+      "post": {
+        "operationId": "OrdersController_getListPurchasesSeller",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetListPurchasesSellerDto"
               }
             }
           }
@@ -1089,6 +1184,116 @@
             "JWT-auth": []
           }
         ],
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/order/get_cart": {
+      "get": {
+        "operationId": "OrdersController_getCart",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Lấy danh sách sản phẩm trong giỏ hàng",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/order/add_cart": {
+      "post": {
+        "operationId": "OrdersController_addCart",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddCartDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Thêm sản phẩm vào giỏ hàng",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/order/edit_cart": {
+      "post": {
+        "operationId": "OrdersController_editCart",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCartDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Chỉnh sửa số lượng sản phẩm trong giỏ hàng",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/order/delete_cart": {
+      "post": {
+        "operationId": "OrdersController_deleteCart",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteCartDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "summary": "Xóa sản phẩm khỏi giỏ hàng",
         "tags": [
           "Orders"
         ]
@@ -1733,6 +1938,42 @@
         ]
       }
     },
+    "/notification/add_notification": {
+      "post": {
+        "operationId": "NotificationsController_add_notification",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddNotiDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "Notifications"
+        ]
+      }
+    },
     "/notification/set_read_notification": {
       "post": {
         "operationId": "NotificationsController_set_read_notification",
@@ -2006,6 +2247,174 @@
         },
         "tags": [
           "Searches"
+        ]
+      }
+    },
+    "/api/del_saved_search": {
+      "post": {
+        "operationId": "SearchesController_delSavedSearch",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DelSavedSearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Searches"
+        ]
+      }
+    },
+    "/rewards/add_reward_proof": {
+      "post": {
+        "operationId": "RewardsController_add_reward_proof",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddRewardProofDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "Rewards"
+        ]
+      }
+    },
+    "/rewards/get_reward_proof": {
+      "post": {
+        "operationId": "RewardsController_get_reward_proof",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetRewardProofDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "Rewards"
+        ]
+      }
+    },
+    "/rewards/get_reward_history": {
+      "post": {
+        "operationId": "RewardsController_get_reward_history",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GetRewardHistoryDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "Rewards"
+        ]
+      }
+    },
+    "/rewards/create_reward_appeal": {
+      "post": {
+        "operationId": "RewardsController_create_reward_appeal",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRewardAppealDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "JWT-auth": []
+          }
+        ],
+        "tags": [
+          "Rewards"
         ]
       }
     }
@@ -2321,6 +2730,7 @@
         "properties": {
           "url": {
             "type": "string",
+            "format": "uri",
             "description": "https://example.com/video.mp4",
             "example": "https://example.com/video.mp4"
           }
@@ -2526,6 +2936,66 @@
           "address_id"
         ]
       },
+      "AddOrderAddressDto": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "string",
+            "description": "địa chỉ chi tiết"
+          },
+          "is_default": {
+            "type": "boolean",
+            "default": false,
+            "description": "đánh dấu địa chỉ mặc định"
+          },
+          "address_id": {
+            "minItems": 2,
+            "description": "mảng các id, 0-ward_id, 1-province_id",
+            "example": [
+              1,
+              2
+            ],
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "lat": {
+            "type": "number",
+            "description": "Vĩ độ"
+          },
+          "lng": {
+            "type": "number",
+            "description": "Kinh độ"
+          },
+          "receiver_name": {
+            "type": "string",
+            "description": "Họ và tên người nhận"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Số điện thoại"
+          },
+          "full_address": {
+            "type": "string",
+            "description": "cả địa chỉ"
+          },
+          "address_detail": {
+            "type": "string",
+            "description": "address detail"
+          }
+        },
+        "required": [
+          "address",
+          "address_id",
+          "lat",
+          "lng",
+          "receiver_name",
+          "phone",
+          "full_address",
+          "address_detail"
+        ]
+      },
       "UpdateOrderAddressDto": {
         "type": "object",
         "properties": {
@@ -2539,8 +3009,12 @@
             "description": "đánh dấu địa chỉ mặc định"
           },
           "address_id": {
+            "minItems": 2,
             "description": "mảng các id, 0-ward_id, 1-province_id",
-            "example": "[1,2]",
+            "example": [
+              1,
+              2
+            ],
             "type": "array",
             "items": {
               "type": "number"
@@ -2604,33 +3078,65 @@
         "type": "object",
         "properties": {
           "items": {
-            "minItems": 1,
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CreateOrderItemDto"
             }
           },
-          "source": {
-            "type": "string"
-          },
           "address_id": {
             "type": "number"
+          },
+          "order_source": {
+            "type": "number",
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "source": {
+            "type": "number",
+            "enum": [
+              0,
+              1
+            ]
           }
         },
         "required": [
           "items",
-          "source",
-          "address_id"
+          "address_id",
+          "order_source"
         ]
       },
       "GetListPurchasesDto": {
         "type": "object",
         "properties": {
           "index": {
-            "type": "string"
+            "type": "number",
+            "minimum": 0
           },
           "count": {
+            "type": "number",
+            "minimum": 1
+          },
+          "state": {
             "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "count"
+        ]
+      },
+      "GetListPurchasesSellerDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number",
+            "minimum": 0
+          },
+          "count": {
+            "type": "number",
+            "minimum": 1
           },
           "state": {
             "type": "string"
@@ -2682,7 +3188,7 @@
             "type": "string"
           },
           "reason": {
-            "type": "number"
+            "type": "string"
           }
         },
         "required": [
@@ -2763,6 +3269,49 @@
         },
         "required": [
           "purchase_id"
+        ]
+      },
+      "AddCartDto": {
+        "type": "object",
+        "properties": {
+          "product_id": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "product_id",
+          "quantity"
+        ]
+      },
+      "EditCartDto": {
+        "type": "object",
+        "properties": {
+          "cart_item_id": {
+            "type": "number"
+          },
+          "quantity": {
+            "type": "number",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "cart_item_id",
+          "quantity"
+        ]
+      },
+      "DeleteCartDto": {
+        "type": "object",
+        "properties": {
+          "cart_item_id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "cart_item_id"
         ]
       },
       "GetListNewsDto": {
@@ -3034,11 +3583,13 @@
         "properties": {
           "index": {
             "type": "number",
+            "minimum": 0,
             "description": "Số thứ tự trang hội thoại (phân trang)",
             "example": 1
           },
           "count": {
             "type": "number",
+            "minimum": 1,
             "description": "Số hội thoại trong 1 trang",
             "example": 10
           }
@@ -3063,11 +3614,13 @@
           },
           "index": {
             "type": "number",
+            "minimum": 0,
             "description": "Số thứ tự trang tin nhắn tải về (phân trang)",
             "example": 1
           },
           "count": {
             "type": "number",
+            "minimum": 1,
             "description": "Số lượng tin nhắn trong một trang",
             "example": 10
           }
@@ -3096,10 +3649,12 @@
         "type": "object",
         "properties": {
           "index": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "count": {
-            "type": "number"
+            "type": "number",
+            "minimum": 1
           },
           "group": {
             "type": "number"
@@ -3109,6 +3664,29 @@
           "index",
           "count",
           "group"
+        ]
+      },
+      "AddNotiDto": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "object_id": {
+            "type": "number"
+          },
+          "title": {
+            "type": "string"
+          },
+          "user_id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "type",
+          "object_id",
+          "title",
+          "user_id"
         ]
       },
       "SetReadNotificationDto": {
@@ -3190,6 +3768,12 @@
           "user_id": {
             "type": "number"
           },
+          "product_id": {
+            "type": "number"
+          },
+          "purchase_id": {
+            "type": "number"
+          },
           "level": {
             "type": "number",
             "minimum": 0,
@@ -3258,6 +3842,81 @@
         "required": [
           "index",
           "count"
+        ]
+      },
+      "DelSavedSearchDto": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string"
+          },
+          "search_id": {
+            "type": "number",
+            "description": "Nếu search_id = 0 thì xóa toàn bộ lịch sử tìm kiếm"
+          }
+        }
+      },
+      "AddRewardProofDto": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string",
+            "pattern": "\\S",
+            "description": "mô tả về chiến công, chú ý cả về số lượng đối tượng",
+            "example": "1 người lính bị thương"
+          },
+          "image_url": {
+            "type": "string"
+          },
+          "video_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "description",
+          "image_url",
+          "video_url"
+        ]
+      },
+      "GetRewardProofDto": {
+        "type": "object",
+        "properties": {
+          "reward_id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "reward_id"
+        ]
+      },
+      "GetRewardHistoryDto": {
+        "type": "object",
+        "properties": {
+          "index": {
+            "type": "number"
+          },
+          "count": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "index",
+          "count"
+        ]
+      },
+      "CreateRewardAppealDto": {
+        "type": "object",
+        "properties": {
+          "reward_id": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reward_id",
+          "reason"
         ]
       }
     }

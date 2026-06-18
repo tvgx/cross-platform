@@ -15,7 +15,6 @@ import { SwipeWrapper } from '../../../components/navigation/SwipeWrapper';
 
 export default function UploadScreen() {
   const { postRepository } = useRepositories();
-  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [mediaUri, setMediaUri] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -35,8 +34,8 @@ export default function UploadScreen() {
   };
 
   const handleUpload = async () => {
-    if (!title || !mediaUri || !user) {
-      Alert.alert('THIẾU THÔNG TIN', 'Nhập tiêu đề và chọn minh chứng.');
+    if (!description || !mediaUri || !user) {
+      Alert.alert('THIẾU THÔNG TIN', 'Nhập mô tả và chọn minh chứng.');
       return;
     }
 
@@ -53,9 +52,11 @@ export default function UploadScreen() {
       // 2. Lưu vào SQLite qua PostRepository (bây giờ là async gọi API)
       await postRepository.createPost({
         id: postId,
-        title,
+        title: '',
         description,
         media_url: localUri,
+        image_url: localUri.endsWith('.mp4') ? '' : localUri,
+        video_url: localUri.endsWith('.mp4') ? localUri : '',
         author_id: user.id,
         status: 'pending',
         ai_score: aiScore,
@@ -71,7 +72,8 @@ export default function UploadScreen() {
         `Đã gửi chiến tích. Chờ Hội đồng / AI xét duyệt để nhận Xu.`
       );
       
-      setTitle('');
+      
+      setDescription('');
       setDescription('');
       setMediaUri(null);
       
@@ -96,13 +98,7 @@ export default function UploadScreen() {
 
         <View style={styles.form}>
           <Input 
-            placeholder="TIÊU ĐỀ CHIẾN TÍCH" 
-            value={title} 
-            onChangeText={setTitle} 
-            style={styles.input}
-          />
-          <Input 
-            placeholder="MÔ TẢ CHI TIẾT (TÙY CHỌN)" 
+            placeholder="MÔ TẢ CHIẾN TÍCH (Bắt buộc)" 
             value={description} 
             onChangeText={setDescription} 
             style={styles.input}
@@ -153,8 +149,8 @@ const styles = StyleSheet.create({
   form: { gap: 20 },
   input: {
     backgroundColor: UI_CONFIG.colors.surfaceLighter,
-    borderColor: 'rgba(255,255,255,0.1)',
-    color: '#fff',
+    borderColor: UI_CONFIG.colors.border,
+    color: UI_CONFIG.colors.text,
     fontWeight: '700',
   },
   mediaBox: {
