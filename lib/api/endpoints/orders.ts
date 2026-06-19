@@ -1,13 +1,13 @@
-import { apiCall } from '../client';
 import type {
   ApiResponse,
   Order,
   OrderAddress,
   OrderTimeline,
-  ShipFrom,
-  ShipFee,
   PaginatedResponse,
+  ShipFee,
+  ShipFrom,
 } from '../../../types';
+import { apiCall } from '../client';
 
 export const ordersApi = {
   // Shipping / địa giới hành chính.
@@ -30,20 +30,12 @@ export const ordersApi = {
   // Order addresses
   // Tỉnh/Thành phố: level 1, không có cha (parent_id = 0).
   getProvinces: () =>
-    apiCall<ApiResponse<any[]>>('GET', '/order/get_ship_from', undefined, {
-      level: 1,
-      parent_id: '0',
-      index: 0,
-      count: 1000,
-    }),
+    apiCall<ApiResponse<any[]>>('GET', '/order/provinces'),
 
   // Phường/Xã của một tỉnh: level 0, parent_id = id tỉnh.
   getWards: (provinceId: number | string) =>
-    apiCall<ApiResponse<any[]>>('GET', '/order/get_ship_from', undefined, {
-      level: 0,
-      parent_id: String(provinceId),
-      index: 0,
-      count: 2000,
+    apiCall<ApiResponse<any[]>>('GET', '/order/wards', undefined, {
+      province_id: String(provinceId),
     }),
 
   getOrderAddresses: () =>

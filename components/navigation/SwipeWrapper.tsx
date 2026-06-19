@@ -4,10 +4,10 @@ import { useRouter } from 'expo-router';
 
 interface SwipeWrapperProps {
   children: React.ReactNode;
-  currentTab: 'index' | 'upload' | 'cart' | 'profile';
+  currentTab: 'index' | 'news' | 'orders' | 'wallet' | 'profile';
 }
 
-const TABS = ['index', 'upload', 'cart', 'profile'];
+const TABS = ['index', 'news', 'orders', 'wallet', 'profile'];
 
 export const SwipeWrapper: React.FC<SwipeWrapperProps> = ({ children, currentTab }) => {
   const router = useRouter();
@@ -22,9 +22,9 @@ export const SwipeWrapper: React.FC<SwipeWrapperProps> = ({ children, currentTab
         const isHorizontalSwipe = Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
         const isSignificantDistance = Math.abs(gestureState.dx) > 30; // threshold
         
-        // Vùng loại trừ (Exclude Area) dành riêng cho Categories Slider ở trang Home
-        // Ước lượng vị trí Slider nằm khoảng Y từ 140 đến 350
-        if (currentTab === 'index' && evt.nativeEvent.pageY >= 140 && evt.nativeEvent.pageY <= 350) {
+        // Vùng loại trừ (Exclude Area) dành riêng cho Categories & News Sliders ở trang Home
+        // Ước lượng vị trí Slider nằm khoảng Y từ 140 đến 550
+        if (currentTab === 'index' && evt.nativeEvent.pageY >= 140 && evt.nativeEvent.pageY <= 550) {
             return false;
         }
 

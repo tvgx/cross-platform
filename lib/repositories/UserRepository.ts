@@ -71,22 +71,7 @@ export const UserRepository = {
     }
   },
 
-  /**
-   * Xác minh tài khoản đăng nhập dã chiến.
-   */
-  verifyLogin(email: string, role: string): User | null {
-    try {
-      const row = db.getFirstSync<any>(
-        'SELECT * FROM Users WHERE email = ? AND role = ?',
-        [email, role]
-      );
-      if (!row) return null;
-      return UserHelper.parseUser(row);
-    } catch (e) {
-      console.error('[UserRepo] Lỗi xác minh tài khoản đăng nhập:', e);
-      return null;
-    }
-  },
+
 
   /**
    * Tạo ví mới cho người dùng.

@@ -20,6 +20,8 @@ export interface User {
   phone?: string;
   email?: string;
   address?: string;
+  followed?: boolean;
+  is_blocked?: boolean;
   created_at: string;
 }
 
@@ -134,10 +136,14 @@ export interface NewsItem {
   id: string;
   title: string;
   thumbnail?: string;
+  image_url?: string;
   summary?: string;
-  body: string;
+  description?: string;
+  body?: string;
+  content?: string;
   author?: string;
-  published_at: string;
+  published_at?: string;
+  created_at?: string;
 }
 
 export interface UserProfile {

@@ -1,9 +1,10 @@
 import { FlashList } from '@shopify/flash-list';
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Dimensions, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeArea } from '../../components/layout/SafeArea';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
+import { socialApi } from '../../lib/api/endpoints/social';
 
 import { ProductCard } from '../../components/product/ProductCard';
 import { useAppStore } from '../../store/app';
@@ -12,7 +13,7 @@ import { useNetworkStore } from '../../store/network';
 
 import { useRouter } from 'expo-router';
 import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
-import { Category, ProductListItem } from '../../types';
+import { Category, ProductListItem, NewsItem } from '../../types';
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList);
 
@@ -32,12 +33,32 @@ export function HomeView() {
   const isDarkMode = useAppStore(state => state.isDarkMode);
   const currentColors = isDarkMode ? UI_CONFIG.darkColors : UI_CONFIG.lightColors;
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const isOnline = useNetworkStore(state => state.isOnline);
 
+  const [newsList, setNewsList] = useState<NewsItem[]>([]);
+  const [isLoadingNews, setIsLoadingNews] = useState(true);
+
   useEffect(() => {
     fetchInitialData();
+    fetchNews();
   }, []);
+
+  const fetchNews = async () => {
+    try {
+      setIsLoadingNews(true);
+      const res = await socialApi.getNewsList({ page: 1, limit: 5 });
+      if (res && res.success && res.data) {
+        const items = (res.data as any).list_news || (res.data as any).items || (Array.isArray(res.data) ? res.data : []);
+        setNewsList(items);
+      }
+    } catch (err) {
+      console.error('Lỗi lấy tin tức:', err);
+    } finally {
+      setIsLoadingNews(false);
+    }
+  };
 
   useEffect(() => {
     if (isOnline && displayedProducts.length === 0) {
@@ -47,6 +68,7 @@ export function HomeView() {
 
   const handleRefresh = useCallback(() => {
     fetchInitialData();
+    fetchNews();
   }, [fetchInitialData]);
 
 
@@ -79,18 +101,19 @@ export function HomeView() {
     );
   };
 
+  const headerHeight = Platform.OS === 'web' ? 60 : 56;
   const scrollY = useRef(new Animated.Value(0)).current;
-  const diffClamp = Animated.diffClamp(scrollY, 0, Platform.OS === 'web' ? 60 : 56);
+  const diffClamp = Animated.diffClamp(scrollY, 0, headerHeight);
   const translateY = diffClamp.interpolate({
-    inputRange: [0, Platform.OS === 'web' ? 60 : 56],
-    outputRange: [0, -(Platform.OS === 'web' ? 60 : 56)],
+    inputRange: [0, headerHeight],
+    outputRange: [0, -headerHeight],
   });
 
   return (
     <SwipeWrapper currentTab="index">
-      <SafeArea edges={['top']} style={{ flex: 1, backgroundColor: currentColors.background }}>
-        <Animated.View style={{ transform: [{ translateY }], position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-          <CustomAppBar title="TiếpTế" showSearch={true} />
+      <View style={{ flex: 1, backgroundColor: currentColors.background }}>
+        <Animated.View style={{ transform: [{ translateY }], position: 'absolute', top: insets.top, left: 0, right: 0, zIndex: 10 }}>
+          <CustomAppBar title="TiếpTế" showSearch={true} showBack={false} />
         </Animated.View>
         <AnimatedFlashList
           data={displayedProducts}
@@ -98,7 +121,7 @@ export function HomeView() {
           renderItem={renderProduct as any}
           numColumns={Platform.OS === 'web' ? 4 : 2}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.container, { paddingHorizontal: 4, paddingTop: Platform.OS === 'web' ? 60 : 56 }]}
+          contentContainerStyle={[styles.container, { paddingHorizontal: 4, paddingTop: headerHeight + insets.top }]}
           onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
           scrollEventThrottle={16}
           onEndReached={handleLoadMore}
@@ -158,6 +181,43 @@ export function HomeView() {
                 </View>
               )}
 
+              {/* News Slider */}
+              <View style={styles.sectionContainer}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={[styles.sectionTitle, { color: currentColors.primary }]}>TIN TỨC MỚI</Text>
+                  <TouchableOpacity onPress={() => router.push('/(main)/(tabs)/news' as any)}>
+                    <Text style={{ color: currentColors.primary, fontSize: 13 }}>Xem tất cả</Text>
+                  </TouchableOpacity>
+                </View>
+                {isLoadingNews ? (
+                  <ActivityIndicator size="small" color={currentColors.primary} style={{ marginTop: 10 }} />
+                ) : newsList.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 8 }}>
+                    {newsList.map((news) => (
+                      <TouchableOpacity 
+                        key={news.id} 
+                        style={[styles.newsCard, { backgroundColor: currentColors.surface, borderColor: currentColors.border }]}
+                        onPress={() => router.push(`/(main)/news/${news.id}` as any)}
+                      >
+                         {news.image_url ? (
+                           <Image source={{ uri: news.image_url }} style={styles.newsImage} />
+                         ) : (
+                           <View style={[styles.newsImagePlaceholder, { backgroundColor: currentColors.surfaceLighter }]} />
+                         )}
+                         <View style={styles.newsCardContent}>
+                           <Text style={[styles.newsTitle, { color: currentColors.text }]} numberOfLines={2}>{news.title}</Text>
+                           <Text style={[styles.newsDate, { color: currentColors.textSecondary }]} numberOfLines={1}>
+                             {new Date(news.created_at || Date.now()).toLocaleDateString('vi-VN')}
+                           </Text>
+                         </View>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <Text style={{ color: currentColors.textSecondary, textAlign: 'center', marginVertical: 10 }}>Chưa có tin tức nào</Text>
+                )}
+              </View>
+
               {/* Products Grid Title */}
               <View style={styles.sectionContainer}>
                 <Text style={[styles.sectionTitle, { color: currentColors.primary }]}>SẢN PHẨM NỔI BẬT</Text>
@@ -168,7 +228,7 @@ export function HomeView() {
             </>
           }
         />
-      </SafeArea>
+      </View>
     </SwipeWrapper>
   );
 }
@@ -264,5 +324,39 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 13,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: UI_CONFIG.spacing.xs,
+    width: '100%',
+  },
+  newsCard: {
+    width: 240,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  newsImage: {
+    width: '100%',
+    height: 120,
+    resizeMode: 'cover',
+  },
+  newsImagePlaceholder: {
+    width: '100%',
+    height: 120,
+  },
+  newsCardContent: {
+    padding: 10,
+  },
+  newsTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  newsDate: {
+    fontSize: 12,
   }
 });

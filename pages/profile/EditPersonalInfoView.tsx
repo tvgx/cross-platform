@@ -29,6 +29,51 @@ export function EditPersonalInfoView() {
   const [provinceName, setProvinceName] = useState('');
   const [wardName, setWardName] = useState('');
   const [addressDetail, setAddressDetail] = useState('');
+  
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [wards, setWards] = useState<any[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string | null>(null);
+  const [selectedWardId, setSelectedWardId] = useState<string | null>(null);
+  const [isSelecting, setIsSelecting] = useState<'province' | 'ward' | null>(null);
+
+  useEffect(() => {
+    if (addressModalVisible && provinces.length === 0) {
+      loadProvinces();
+    }
+  }, [addressModalVisible]);
+
+  const loadProvinces = async () => {
+    try {
+      const res = await ordersApi.getProvinces();
+      if (res.data) setProvinces(res.data);
+    } catch (e) {
+      console.error('Error loading provinces:', e);
+    }
+  };
+
+  const loadWards = async (provinceId: string) => {
+    try {
+      const res = await ordersApi.getWards(provinceId);
+      if (res.data) setWards(res.data);
+    } catch (e) {
+      console.error('Error loading wards:', e);
+    }
+  };
+
+  const handleSelectProvince = (prov: any) => {
+    setProvinceName(prov.name || prov.title || prov.text || prov.id);
+    setSelectedProvinceId(prov.id);
+    setWardName('');
+    setSelectedWardId(null);
+    setIsSelecting(null);
+    loadWards(prov.id);
+  };
+
+  const handleSelectWard = (ward: any) => {
+    setWardName(ward.name || ward.title || ward.text || ward.id);
+    setSelectedWardId(ward.id);
+    setIsSelecting(null);
+  };
 
   const handleConfirmAddress = async () => {
     if (!provinceName || !wardName || !addressDetail) {
@@ -47,7 +92,7 @@ export function EditPersonalInfoView() {
         is_default: true,
         lat: 0,
         lng: 0,
-        address_id: [] // Không có API nên truyền mảng rỗng hoặc tuỳ ý
+        address_id: selectedProvinceId && selectedWardId ? [Number(selectedProvinceId), Number(selectedWardId)] : []
       };
       await ordersApi.addOrderAddress(body);
     } catch (err) {
@@ -246,21 +291,57 @@ export function EditPersonalInfoView() {
             </View>
 
             <ScrollView contentContainerStyle={{ padding: UI_CONFIG.spacing.md, gap: 12 }}>
-              <Text style={styles.label}>Tỉnh/Thành phố</Text>
-              <TextInput 
-                style={styles.input}
-                placeholder="Nhập Tỉnh/Thành phố" 
-                value={provinceName} 
-                onChangeText={setProvinceName} 
-              />
+              {isSelecting === 'province' ? (
+                <View>
+                  <TouchableOpacity onPress={() => setIsSelecting(null)} style={{ marginBottom: 12 }}>
+                    <Text style={{ color: UI_CONFIG.colors.primary, fontWeight: 'bold' }}>&larr; Quay lại</Text>
+                  </TouchableOpacity>
+                  {provinces.map(prov => (
+                    <TouchableOpacity key={prov.id} style={styles.listItem} onPress={() => handleSelectProvince(prov)}>
+                      <Text style={styles.listItemText}>{prov.name || prov.title || prov.text || prov.id}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  {provinces.length === 0 && <ActivityIndicator style={{ marginTop: 20 }} />}
+                </View>
+              ) : isSelecting === 'ward' ? (
+                <View>
+                  <TouchableOpacity onPress={() => setIsSelecting(null)} style={{ marginBottom: 12 }}>
+                    <Text style={{ color: UI_CONFIG.colors.primary, fontWeight: 'bold' }}>&larr; Quay lại</Text>
+                  </TouchableOpacity>
+                  {wards.length > 0 ? wards.map(ward => (
+                    <TouchableOpacity key={ward.id} style={styles.listItem} onPress={() => handleSelectWard(ward)}>
+                      <Text style={styles.listItemText}>{ward.name || ward.title || ward.text || ward.id}</Text>
+                    </TouchableOpacity>
+                  )) : (
+                    <Text style={{ textAlign: 'center', marginTop: 20 }}>Không có dữ liệu Phường/Xã</Text>
+                  )}
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.label}>Tỉnh/Thành phố</Text>
+                  <TouchableOpacity style={styles.selector} onPress={() => setIsSelecting('province')}>
+                    <Text style={provinceName ? styles.selectorText : styles.placeholderText}>
+                      {provinceName || "Chọn Tỉnh/Thành phố"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={UI_CONFIG.colors.textSecondary} />
+                  </TouchableOpacity>
 
-              <Text style={styles.label}>Phường/Xã/Quận/Huyện</Text>
-              <TextInput 
-                style={styles.input}
-                placeholder="Nhập Phường/Xã, Quận/Huyện" 
-                value={wardName} 
-                onChangeText={setWardName} 
-              />
+                  <Text style={styles.label}>Phường/Xã/Quận/Huyện</Text>
+                  <TouchableOpacity 
+                    style={styles.selector} 
+                    onPress={() => {
+                      if (!selectedProvinceId) {
+                        alert('Vui lòng chọn Tỉnh/Thành phố trước');
+                        return;
+                      }
+                      setIsSelecting('ward');
+                    }}
+                  >
+                    <Text style={wardName ? styles.selectorText : styles.placeholderText}>
+                      {wardName || "Chọn Phường/Xã, Quận/Huyện"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={UI_CONFIG.colors.textSecondary} />
+                  </TouchableOpacity>
 
               <Text style={styles.label}>Tên đường, Tòa nhà, Số nhà</Text>
               <TextInput 
@@ -270,12 +351,14 @@ export function EditPersonalInfoView() {
                 onChangeText={setAddressDetail} 
               />
               
-              <Button 
-                text="Xác nhận"
-                onPress={handleConfirmAddress}
-                backgroundColor={UI_CONFIG.colors.primary}
-                style={{ marginTop: 16 }}
-              />
+                  <Button 
+                    text="Xác nhận"
+                    onPress={handleConfirmAddress}
+                    backgroundColor={UI_CONFIG.colors.primary}
+                    style={{ marginTop: 16 }}
+                  />
+                </>
+              )}
             </ScrollView>
           </View>
         </View>

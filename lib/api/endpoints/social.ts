@@ -224,6 +224,13 @@ export const socialApi = {
           data: null,
           message: 'Đã lưu trạng thái theo dõi offline, sẽ đồng bộ khi có mạng.'
         } as unknown as ApiResponse<null>;
+      } else if (user) {
+         // Server rejected (e.g. rate limit, error), rollback optimistic local update
+         if (body.action === 'follow') {
+             UserRepository.unfollowUser(String(user.id), body.user_id);
+         } else {
+             UserRepository.followUser(String(user.id), body.user_id);
+         }
       }
       throw error;
     }
@@ -232,8 +239,9 @@ export const socialApi = {
   getFollowed: (params?: { page?: number; limit?: number }) => {
     const page = params?.page || 1;
     const limit = params?.limit || 20;
+    const user = useAuthStore.getState().user;
     return apiCall<ApiResponse<PaginatedResponse<UserProfile>>>('POST', '/get_list_followed', {
-      user_id: 1,
+      user_id: user ? parseInt(String(user.id), 10) : 0,
       index: (page - 1) * limit,
       count: limit
     });
@@ -242,8 +250,9 @@ export const socialApi = {
   getFollowing: (params?: { page?: number; limit?: number }) => {
     const page = params?.page || 1;
     const limit = params?.limit || 20;
+    const user = useAuthStore.getState().user;
     return apiCall<ApiResponse<PaginatedResponse<UserProfile>>>('POST', '/get_list_following', {
-      user_id: 1,
+      user_id: user ? parseInt(String(user.id), 10) : 0,
       index: (page - 1) * limit,
       count: limit
     });

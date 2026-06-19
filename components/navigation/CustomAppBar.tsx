@@ -15,7 +15,7 @@ interface CustomAppBarProps {
   onSearch?: (query: string) => void;
 }
 
-export function CustomAppBar({ title = "TiếpTế", showBack = false, showSearch = false, onSearch }: CustomAppBarProps) {
+export function CustomAppBar({ title = "TiếpTế", showBack = true, showSearch = false, onSearch }: CustomAppBarProps) {
   const navigation = useNavigation();
   const router = useRouter();
   const user = useAuthStore(state => state.user);
@@ -25,9 +25,9 @@ export function CustomAppBar({ title = "TiếpTế", showBack = false, showSearc
 
   const handleLeftPress = () => {
     if (showBack) {
-      router.back();
-    } else {
-      navigation.dispatch(DrawerActions.openDrawer());
+      if (router.canGoBack()) {
+        router.back();
+      }
     }
   };
 
@@ -39,9 +39,11 @@ export function CustomAppBar({ title = "TiếpTế", showBack = false, showSearc
 
   return (
     <View style={[styles.container, { backgroundColor: currentColors.primary, borderBottomColor: currentColors.primary }]}>
-      <TouchableOpacity onPress={handleLeftPress} style={styles.iconButton}>
-        <IconSymbol name={showBack ? "chevron.left" : "line.3.horizontal"} size={24} color={currentColors.white} />
-      </TouchableOpacity>
+      {showBack && (
+        <TouchableOpacity onPress={handleLeftPress} style={styles.iconButton}>
+          <IconSymbol name="chevron.left" size={24} color={currentColors.white} />
+        </TouchableOpacity>
+      )}
 
       {showSearch ? (
         <TouchableOpacity 

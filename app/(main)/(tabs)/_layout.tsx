@@ -13,11 +13,15 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
       }}
+      backBehavior="history"
     >
-      <Tabs.Screen name="index" options={{ title: 'Feed' }} />
-      <Tabs.Screen name="upload" options={{ title: 'Upload' }} />
-      <Tabs.Screen name="cart" options={{ title: 'Cart' }} />
+      <Tabs.Screen name="index" options={{ title: 'Home' }} />
+      <Tabs.Screen name="news" options={{ title: 'News' }} />
+      <Tabs.Screen name="orders" options={{ title: 'Orders' }} />
+      <Tabs.Screen name="wallet" options={{ title: 'Wallet' }} />
       <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+      <Tabs.Screen name="upload" options={{ href: null }} />
+      <Tabs.Screen name="cart" options={{ href: null }} />
     </Tabs>
   );
 }

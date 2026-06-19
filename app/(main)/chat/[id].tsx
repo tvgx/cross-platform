@@ -9,8 +9,9 @@ import { useAppStore } from '../../../store/app';
 import { useAuthStore } from '../../../store/auth';
 import { MessageRepository } from '../../../lib/repositories/MessageRepository';
 import { messagingApi } from '../../../lib/api/endpoints/misc';
+import { usersApi } from '../../../lib/api/endpoints/users';
 import { IconSymbol } from '../../../components/ui/icon-symbol';
-import { Message } from '../../../types';
+import { Message, User } from '../../../types';
 import { uploadApi } from '../../../lib/api/endpoints/upload';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -27,6 +28,19 @@ export default function ChatDetailPage() {
   
   // Custom header title logic here (could fetch participant info)
   const [partnerName, setPartnerName] = useState('Đang trò chuyện...');
+  const [partner, setPartner] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      usersApi.getUserInfo(id).then(res => {
+        if (res.success && res.data) {
+          setPartner(res.data);
+          const name = [res.data.lastname, res.data.firstname].filter(Boolean).join(' ').trim() || res.data.full_name || res.data.username || 'Người dùng';
+          setPartnerName(name);
+        }
+      }).catch(err => console.log('Error fetching partner:', err));
+    }
+  }, [id]);
 
   const loadMessages = useCallback(async () => {
     if (!id || !user) return;
@@ -183,28 +197,33 @@ export default function ChatDetailPage() {
           inverted
           contentContainerStyle={styles.listContainer}
         />
-        
-        <View style={[styles.inputContainer, { backgroundColor: currentColors.surface, borderTopColor: currentColors.border }]}>
-          <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} disabled={isUploading}>
-            {isUploading ? <ActivityIndicator size="small" color={currentColors.primary} /> : <Ionicons name="image-outline" size={24} color={currentColors.textSecondary} />}
-          </TouchableOpacity>
-          <TextInput
-            style={[styles.input, { color: currentColors.text, backgroundColor: currentColors.background }]}
-            placeholder="Nhập tin nhắn..."
-            placeholderTextColor={currentColors.textLight}
-            value={text}
-            onChangeText={setText}
-            multiline
-            maxLength={500}
-          />
-          <TouchableOpacity 
-            style={[styles.sendButton, { backgroundColor: currentColors.primary }]}
-            onPress={handleSend}
-            disabled={!text.trim()}
-          >
-            <IconSymbol name="paperplane.fill" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        {partner?.is_blocked ? (
+          <View style={[styles.inputContainer, { backgroundColor: currentColors.surface, borderTopColor: currentColors.border, justifyContent: 'center' }]}>
+            <Text style={{ color: currentColors.textSecondary, textAlign: 'center', paddingVertical: 12 }}>Bạn không thể gửi tin nhắn cho người này</Text>
+          </View>
+        ) : (
+          <View style={[styles.inputContainer, { backgroundColor: currentColors.surface, borderTopColor: currentColors.border }]}>
+            <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} disabled={isUploading}>
+              {isUploading ? <ActivityIndicator size="small" color={currentColors.primary} /> : <Ionicons name="image-outline" size={24} color={currentColors.textSecondary} />}
+            </TouchableOpacity>
+            <TextInput
+              style={[styles.input, { color: currentColors.text, backgroundColor: currentColors.background }]}
+              placeholder="Nhập tin nhắn..."
+              placeholderTextColor={currentColors.textLight}
+              value={text}
+              onChangeText={setText}
+              multiline
+              maxLength={500}
+            />
+            <TouchableOpacity 
+              style={[styles.sendButton, { backgroundColor: currentColors.primary }]}
+              onPress={handleSend}
+              disabled={!text.trim()}
+            >
+              <IconSymbol name="paperplane.fill" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </SafeArea>
   );

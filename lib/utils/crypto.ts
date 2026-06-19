@@ -1,4 +1,34 @@
-// Pure TypeScript SHA-256 and Symmetric Encryption for Tactical Coordinates (Army+)
+import * as SecureStore from 'expo-secure-store';
+
+const SECURE_STORE_KEY_NAME = 'TACTICAL_CRYPTO_KEY';
+const FALLBACK_CRYPTO_KEY = 'default_tactical_key_2026';
+
+/**
+ * Lấy khóa mã hóa từ SecureStore. Nếu chưa có, sử dụng khóa mặc định.
+ * Trong tương lai, khóa này nên được fetch từ server sau khi đăng nhập và lưu vào SecureStore.
+ */
+function getCryptoKey(): string {
+  try {
+    const storedKey = SecureStore.getItem(SECURE_STORE_KEY_NAME);
+    if (storedKey) {
+      return storedKey;
+    }
+  } catch (error) {
+    console.error('[CryptoUtils] Lỗi khi đọc khóa mã hóa từ SecureStore:', error);
+  }
+  return FALLBACK_CRYPTO_KEY;
+}
+
+/**
+ * Lưu khóa mã hóa mới vào SecureStore (được gọi sau khi nhận từ server).
+ */
+export async function setCryptoKey(newKey: string): Promise<void> {
+  try {
+    await SecureStore.setItemAsync(SECURE_STORE_KEY_NAME, newKey);
+  } catch (error) {
+    console.error('[CryptoUtils] Lỗi khi lưu khóa mã hóa vào SecureStore:', error);
+  }
+}
 
 /**
  * Thuật toán băm SHA-256 tự chứa, không phụ thuộc vào thư viện ngoài.
@@ -140,7 +170,7 @@ function cryptText(text: string, key: string, encrypt: boolean): string {
  * Mã hóa tọa độ GPS thành chuỗi bảo mật an toàn.
  */
 export function encryptCoordinates(latitude: number, longitude: number): string {
-  const cryptoKey = process.env.EXPO_PUBLIC_CRYPTO_KEY || 'default_tactical_key_2026';
+  const cryptoKey = getCryptoKey();
   const plainText = `${latitude.toFixed(6)},${longitude.toFixed(6)}`;
   const cipherHex = cryptText(plainText, cryptoKey, true);
   return `enc:${cipherHex}`;
@@ -151,7 +181,7 @@ export function encryptCoordinates(latitude: number, longitude: number): string 
  */
 export function decryptCoordinates(encryptedStr: string): { latitude: number; longitude: number } | null {
   if (!encryptedStr || !encryptedStr.startsWith('enc:')) return null;
-  const cryptoKey = process.env.EXPO_PUBLIC_CRYPTO_KEY || 'default_tactical_key_2026';
+  const cryptoKey = getCryptoKey();
   const cipherHex = encryptedStr.substring(4);
   
   try {

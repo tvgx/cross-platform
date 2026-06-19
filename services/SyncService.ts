@@ -7,6 +7,7 @@ import { OrderRepository } from '../lib/repositories/OrderRepository';
 import { MessageRepository } from '../lib/repositories/MessageRepository';
 import { apiCall } from '../lib/api/client';
 import { useNetworkStore } from '../store/network';
+import { useAuthStore } from '../store/auth';
 import { db } from '../lib/storage/sqlite';
 
 
@@ -59,6 +60,8 @@ export const SyncService = {
             success = await this.syncLikeProduct(task.target_id, payloadParsed);
           } else if (task.action === 'COMMENT_POST') {
             success = await this.syncComment(task.target_id, payloadParsed);
+          } else if (task.action === 'FOLLOW_USER' || task.action === 'UNFOLLOW_USER') {
+            success = await this.syncFollowUser(task.target_id, payloadParsed, task.action);
           }
 
           if (success) {
@@ -160,11 +163,25 @@ export const SyncService = {
         return false;
       }
 
+      let mimeType = 'application/octet-stream';
+      const extension = post.media_url.split('.').pop()?.toLowerCase();
+      if (['mp4', 'mov'].includes(extension || '')) {
+         mimeType = 'video/mp4';
+      } else if (['jpg', 'jpeg'].includes(extension || '')) {
+         mimeType = 'image/jpeg';
+      } else if (extension === 'png') {
+         mimeType = 'image/png';
+      }
+
+      // Sanitize filename to avoid path traversal
+      let sanitizedName = post.media_url.split('/').pop() || 'media_file';
+      sanitizedName = sanitizedName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+
       const formData = new FormData();
       formData.append('file', {
         uri: post.media_url,
-        type: post.media_url.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg',
-        name: post.media_url.split('/').pop() || 'media_file'
+        type: mimeType,
+        name: sanitizedName
       } as any);
       formData.append('post_id', postId);
 
@@ -267,7 +284,7 @@ export const SyncService = {
     try {
       const isOnline = useNetworkStore.getState().isOnline;
       if (!isOnline) {
-        return true;
+        return false; // keep task in queue
       }
 
       const res = await apiCall<any>('POST', '/api/like_product', {
@@ -313,7 +330,7 @@ export const SyncService = {
     try {
       const isOnline = useNetworkStore.getState().isOnline;
       if (!isOnline) {
-        return true;
+        return false; // keep task in queue
       }
 
       const res = await apiCall<any>('POST', '/api/set_comments_product', {
@@ -348,6 +365,37 @@ export const SyncService = {
     }
   },
 
+  async syncFollowUser(targetId: string, payload: any, action: 'FOLLOW_USER' | 'UNFOLLOW_USER') {
+    if (!payload) return true;
+    try {
+      const isOnline = useNetworkStore.getState().isOnline;
+      if (!isOnline) return false;
+
+      const res = await apiCall<any>('POST', '/set_user_follow', {
+        followee_id: parseInt(payload.user_id, 10),
+        action: payload.action
+      });
+
+      if (res && res.success) {
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+           const { UserRepository } = require('../lib/repositories/UserRepository');
+           UserRepository.markFollowSynced(String(currentUser.id), payload.user_id);
+        }
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error(`[Sync] Lỗi đồng bộ theo dõi người dùng ${targetId}:`, err);
+      const status = err.response?.status;
+      // If client error, stop retrying
+      if (status && status >= 400 && status < 500) {
+          return true; 
+      }
+      return false;
+    }
+  },
+
   init() {
     if (isInitialized) return;
     isInitialized = true;
@@ -364,7 +412,11 @@ export const SyncService = {
         // Khởi tạo interval đồng bộ liên tục khi online (mỗi 15 giây)
         if (!activeOnlineInterval) {
           activeOnlineInterval = setInterval(() => {
-            this.runSyncProcess();
+             const pending = SyncQueueRepository.getPendingTasks(1);
+             // Only run process if we actually have pending tasks, preventing empty interval polling
+             if (pending.length > 0) {
+               this.runSyncProcess();
+             }
           }, 15000);
         }
       } else {
@@ -377,6 +429,14 @@ export const SyncService = {
         }
       }
     });
+  },
+
+  reset() {
+    isInitialized = false;
+    if (activeOnlineInterval) {
+        clearInterval(activeOnlineInterval);
+        activeOnlineInterval = null;
+    }
   }
 };
 

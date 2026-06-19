@@ -79,6 +79,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Guard against concurrent fetches
   const fetchingCatalog = useRef(false);
   const fetchingNotifications = useRef(false);
+  const fetchingOrders = useRef(false);
+  const fetchingConversations = useRef(false);
 
   // ── Catalog refresh ────────────────────────────────────────────────────────
 
@@ -139,6 +141,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoggedIn, setNotifications]);
 
+  // ── Orders refresh ─────────────────────────────────────────────────────────
+
+  const refreshOrders = useCallback(async () => {
+    if (!isLoggedIn || fetchingOrders.current) return;
+    fetchingOrders.current = true;
+    try {
+      const { ordersApi } = require('../lib/api/endpoints/orders');
+      const { OrderRepository } = require('../lib/repositories/OrderRepository');
+      const res = await ordersApi.getPurchases({ index: 0, count: 50 });
+      if (res.success && res.data) {
+        const items = Array.isArray(res.data) ? res.data : ((res.data as any).items || []);
+        OrderRepository.syncOrdersWithServer(items);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      fetchingOrders.current = false;
+    }
+  }, [isLoggedIn]);
+
+  // ── Conversations refresh ──────────────────────────────────────────────────
+
+  const refreshConversations = useCallback(async () => {
+    if (!isLoggedIn || !user || fetchingConversations.current) return;
+    fetchingConversations.current = true;
+    try {
+      const { messagingApi } = require('../lib/api/endpoints/misc');
+      const { MessageRepository } = require('../lib/repositories/MessageRepository');
+      const res = await messagingApi.getConversationList({ limit: 50 });
+      if (res.success && res.data) {
+        const items = Array.isArray(res.data) ? res.data : ((res.data as any).items || []);
+        MessageRepository.saveConversations(String(user.id), items);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      fetchingConversations.current = false;
+    }
+  }, [isLoggedIn, user]);
+
   // ── User info refresh ──────────────────────────────────────────────────────
 
   const refreshUserInfo = useCallback(async () => {
@@ -193,6 +235,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (isLoggedIn) {
           refreshUserInfo();
           refreshNotifications();
+          refreshOrders();
+          refreshConversations();
         }
         
         const { SyncService } = require('../services/SyncService');
@@ -203,7 +247,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } else {
       wasOffline.current = true;
     }
-  }, [isOnline, processQueue, refreshCatalog, isLoggedIn, refreshUserInfo, refreshNotifications]);
+  }, [isOnline, processQueue, refreshCatalog, isLoggedIn, refreshUserInfo, refreshNotifications, refreshOrders, refreshConversations]);
 
   // ── Initial preload ────────────────────────────────────────────────────────
 
@@ -219,6 +263,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (isLoggedIn) {
           promises.push(refreshUserInfo());
           promises.push(refreshNotifications());
+          promises.push(refreshOrders());
+          promises.push(refreshConversations());
           promises.push(processQueue());
         }
 
@@ -246,10 +292,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (isLoggedIn && !prevLoggedIn.current && isOnline) {
       refreshUserInfo();
       refreshNotifications();
+      refreshOrders();
+      refreshConversations();
       processQueue();
     }
     prevLoggedIn.current = isLoggedIn;
-  }, [isLoggedIn, isOnline, refreshUserInfo, refreshNotifications, processQueue]);
+  }, [isLoggedIn, isOnline, refreshUserInfo, refreshNotifications, processQueue, refreshOrders, refreshConversations]);
 
   return (
     <AppContext.Provider value={{ isAppReady, refreshCatalog, refreshNotifications }}>

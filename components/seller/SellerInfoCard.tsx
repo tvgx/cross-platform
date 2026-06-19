@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { UI_CONFIG } from '../../constants/config';
+import { usersApi } from '../../lib/api/endpoints/users';
+import { socialApi } from '../../lib/api/endpoints/social';
 
 interface SellerInfoCardProps {
   sellerId: string;
@@ -9,7 +11,6 @@ interface SellerInfoCardProps {
   sellerAvatar?: string;
   hideViewShopButton?: boolean;
   onPressSeller?: () => void;
-  onPressFollow?: () => void;
   onPressChat?: () => void;
   onPressViewShop?: () => void;
 }
@@ -20,10 +21,31 @@ export function SellerInfoCard({
   sellerAvatar,
   hideViewShopButton,
   onPressSeller,
-  onPressFollow,
   onPressChat,
   onPressViewShop
 }: SellerInfoCardProps) {
+  const [isFollowing, setIsFollowing] = useState(false);
+
+  useEffect(() => {
+    if (sellerId) {
+      usersApi.getUserInfo(sellerId).then(res => {
+        if (res.success && res.data) {
+          setIsFollowing(!!res.data.followed);
+        }
+      }).catch(() => {});
+    }
+  }, [sellerId]);
+
+  const handleFollow = async () => {
+    try {
+      const action = isFollowing ? 'unfollow' : 'follow';
+      await socialApi.setFollow({ user_id: sellerId, action });
+      setIsFollowing(!isFollowing);
+    } catch (e) {
+      console.log('Error toggling follow:', e);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <TouchableOpacity 
@@ -48,10 +70,12 @@ export function SellerInfoCard({
 
       <View style={styles.actionsContainer}>
         <TouchableOpacity 
-          style={[styles.followBtn, { backgroundColor: 'transparent' }]} 
-          onPress={onPressFollow}
+          style={[styles.followBtn, { backgroundColor: isFollowing ? UI_CONFIG.colors.primary : 'transparent' }]} 
+          onPress={handleFollow}
         >
-          <Text style={styles.followBtnText}>Theo dõi</Text>
+          <Text style={[styles.followBtnText, { color: isFollowing ? '#fff' : UI_CONFIG.colors.primary }]}>
+            {isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.chatBtn} onPress={onPressChat}>
           <Ionicons name="chatbubble-ellipses-outline" size={20} color={UI_CONFIG.colors.primary} />

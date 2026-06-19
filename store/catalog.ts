@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { zustandStorage } from '../lib/storage/mmkv';
 import type { Category, Brand, ProductListItem } from '../types';
-import { ProductRepository } from '../lib/repositories/ProductRepository';
 
 const CACHE_TTL_MS = 5 * 60 * 1_000; // 5 minutes
 
@@ -73,6 +72,7 @@ export const useCatalogStore = create<CatalogState>()(
 
         // Truyền dữ liệu sản phẩm (nếu tìm được) để repository upsert hàng Products tối thiểu,
         // tránh "FOREIGN KEY constraint failed" khi SP của Home chưa có trong SQLite.
+        const { ProductRepository } = require('../lib/repositories/ProductRepository');
         ProductRepository.likeProduct(productId, userId, newIsLiked, newLikeCount, current);
 
         // Run API update asynchronously

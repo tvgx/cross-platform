@@ -8,6 +8,7 @@ import { userApi } from '../../lib/api/endpoints/user';
 import { Button } from '../../components/ui/Button';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
+import { ordersApi } from '../../lib/api/endpoints/orders';
 
 export function PersonalInfoView() {
   const { user, updateUser } = useAuthStore();
@@ -34,7 +35,7 @@ export function PersonalInfoView() {
   const loadAddresses = async () => {
     try {
       setIsLoadingAddresses(true);
-      const res = await userApi.getMyAddresses();
+      const res = await ordersApi.getOrderAddresses();
       if (res.data) {
         setAddresses(res.data);
       }

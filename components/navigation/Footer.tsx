@@ -18,10 +18,11 @@ export interface FooterProps {
 
 export const Footer = ({
   tabs = [
-    { key: 'index', label: 'Feed', iconName: 'home' },
-    { key: 'upload', label: 'Upload', iconName: 'add-circle' },
-    { key: 'cart', label: 'Cart', iconName: 'cart' },
-    { key: 'profile', label: 'Profile', iconName: 'person' },
+    { key: 'index', label: 'Trang chủ', iconName: 'home' },
+    { key: 'news', label: 'Tin tức', iconName: 'newspaper' },
+    { key: 'orders', label: 'Đơn hàng', iconName: 'receipt' },
+    { key: 'wallet', label: 'Ví', iconName: 'wallet' },
+    { key: 'profile', label: 'Hồ sơ', iconName: 'person' },
   ],
   activeTab = 'index',
   onTabChange,

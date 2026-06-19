@@ -59,13 +59,49 @@ if (Platform.OS === 'web') {
 // Single storage instance shared across the app.
 export const storage = storageInstance;
 
+import * as SecureStore from 'expo-secure-store';
+
 /**
- * Zustand persist storage adapter backed by MMKV (or localStorage on Web).
+ * Zustand persist storage adapter.
+ * Uses SecureStore for sensitive keys (like auth-storage) and falls back to storageInstance for others.
  */
 export const zustandStorage: StateStorage = {
-  getItem: (name) => storage.getString(name) ?? null,
-  setItem: (name, value) => storage.set(name, value),
-  removeItem: (name) => storage.remove(name),
+  getItem: (name) => {
+    if (name === 'auth-storage' && Platform.OS !== 'web') {
+      try {
+        const item = SecureStore.getItem(name);
+        return item ?? null;
+      } catch (e) {
+        console.error('[Storage Warning]: SecureStore.getItem failed for', name, e);
+        return null;
+      }
+    }
+    return storage.getString(name) ?? null;
+  },
+  setItem: (name, value) => {
+    if (name === 'auth-storage' && Platform.OS !== 'web') {
+      try {
+        SecureStore.setItem(name, value);
+        return;
+      } catch (e) {
+         console.error('[Storage Warning]: SecureStore.setItem failed for', name, e);
+         return;
+      }
+    }
+    storage.set(name, value);
+  },
+  removeItem: (name) => {
+    if (name === 'auth-storage' && Platform.OS !== 'web') {
+      try {
+        SecureStore.deleteItemAsync(name);
+        return;
+      } catch (e) {
+         console.error('[Storage Warning]: SecureStore.removeItem failed for', name, e);
+         return;
+      }
+    }
+    storage.remove(name);
+  },
 };
 
 // ─── Convenience helpers ──────────────────────────────────────────────────────

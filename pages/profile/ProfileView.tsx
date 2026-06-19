@@ -10,8 +10,7 @@ import { useRepositories } from '../../context/RepositoryProvider';
 import { NavigationService } from '../../lib/navigation/NavigationService';
 import { ROUTES } from '../../lib/navigation/routes';
 import { SwipeWrapper } from '../../components/navigation/SwipeWrapper';
-import { ordersApi } from '../../lib/api/endpoints/orders';
-import { balanceApi } from '../../lib/api/endpoints/misc';
+import { userApi } from '../../lib/api/endpoints/user';
 import { useNetworkStore } from '../../store/network';
 
 export function ProfileView() {
@@ -20,9 +19,6 @@ export function ProfileView() {
   const logout = useAuthStore(state => state.logout);
   const router = useRouter();
   const { userRepository, postRepository } = useRepositories();
-
-  const [orderCount, setOrderCount] = useState(0);
-  const balance = useAuthStore(state => state.balance);
 
   const isOnline = useNetworkStore(state => state.isOnline);
 
@@ -35,13 +31,9 @@ export function ProfileView() {
   const loadUserData = async () => {
     if (!user?.id) return;
     try {
-      // Load orders to get count from backend
-      const ordersRes = await ordersApi.getPurchases({ index: 0, count: 1 });
-      
-      if (ordersRes.data?.total !== undefined) {
-        setOrderCount(ordersRes.data.total);
-      } else if (ordersRes.data?.items) {
-        setOrderCount(ordersRes.data.items.length);
+      const res = await userApi.getUserInfo(user.id);
+      if (res && res.success && res.data) {
+        updateUser(res.data);
       }
     } catch (err) {
       console.error('Error loading user data in Profile:', err);
@@ -102,28 +94,7 @@ export function ProfileView() {
           </View>
         </View>
 
-        {/* Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNumber}>{orderCount}</Text>
-            <Text style={styles.statLabel}>Đơn hàng</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text 
-              style={[styles.statNumber, { color: UI_CONFIG.colors.primary }]} 
-              numberOfLines={1} 
-              ellipsizeMode="clip"
-            >
-              {balance >= 900000000000000000 ? '999999999999999999' : balance.toLocaleString('vi-VN')}
-            </Text>
-            <Text style={styles.statLabel}>Điểm thưởng</Text>
-          </View>
-        </View>
-
-        {/* Tạm ẩn Lịch sử chiến tích theo yêu cầu */}
-
-        {/* Menu list */}
+        {/* Stats removed per requirements */}
         <View style={styles.menuContainer}>
           <Text style={styles.menuSectionTitle}>Mua sắm</Text>
           {renderMenuItem('grid', 'Tất cả sản phẩm', () => NavigationService.navigate(ROUTES.ALL_PRODUCTS))}
@@ -163,11 +134,6 @@ const styles = StyleSheet.create({
   userRole: { fontSize: UI_CONFIG.typography.sizes.md, color: UI_CONFIG.colors.primary, fontWeight: '500' },
   userEmail: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 4 },
   userUnit: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 2 },
-  statsContainer: { flexDirection: 'row', backgroundColor: UI_CONFIG.colors.background, paddingVertical: UI_CONFIG.spacing.md, marginBottom: UI_CONFIG.spacing.sm },
-  statItem: { flex: 1, alignItems: 'center' },
-  statDivider: { width: 1, backgroundColor: UI_CONFIG.colors.border },
-  statNumber: { fontSize: UI_CONFIG.typography.sizes.lg, fontWeight: 'bold', color: UI_CONFIG.colors.text },
-  statLabel: { fontSize: UI_CONFIG.typography.sizes.sm, color: UI_CONFIG.colors.textSecondary, marginTop: 4 },
   menuContainer: { backgroundColor: UI_CONFIG.colors.background, paddingVertical: UI_CONFIG.spacing.sm, marginBottom: UI_CONFIG.spacing.lg },
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: UI_CONFIG.spacing.md },
   menuSectionTitle: { fontSize: UI_CONFIG.typography.sizes.md, fontWeight: 'bold', color: UI_CONFIG.colors.textSecondary, paddingHorizontal: UI_CONFIG.spacing.md, marginTop: UI_CONFIG.spacing.md, marginBottom: UI_CONFIG.spacing.sm },

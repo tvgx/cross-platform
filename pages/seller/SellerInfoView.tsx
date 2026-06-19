@@ -4,7 +4,9 @@ import { SafeArea } from '../../components/layout/SafeArea';
 import { CustomAppBar } from '../../components/navigation/CustomAppBar';
 import { UI_CONFIG } from '../../constants/config';
 import { usersApi } from '../../lib/api/endpoints/users';
+import { socialApi } from '../../lib/api/endpoints/social';
 import { User } from '../../types';
+import { Button } from '../../components/ui/Button';
 
 interface SellerInfoViewProps {
   userId: string;
@@ -37,7 +39,7 @@ export function SellerInfoView({ userId }: SellerInfoViewProps) {
   if (isLoading) {
     return (
       <SafeArea edges={['top']}>
-        <CustomAppBar title="Thông tin người bán" />
+        <CustomAppBar title="Thông tin người bán" showBack={true} />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={UI_CONFIG.colors.primary} />
         </View>
@@ -48,7 +50,7 @@ export function SellerInfoView({ userId }: SellerInfoViewProps) {
   if (!user) {
     return (
       <SafeArea edges={['top']}>
-        <CustomAppBar title="Thông tin người bán" />
+        <CustomAppBar title="Thông tin người bán" showBack={true} />
         <View style={styles.center}>
           <Text style={styles.errorText}>Không tìm thấy thông tin người bán</Text>
         </View>
@@ -61,7 +63,7 @@ export function SellerInfoView({ userId }: SellerInfoViewProps) {
 
   return (
     <SafeArea edges={['top']}>
-      <CustomAppBar title="Thông tin người bán" />
+      <CustomAppBar title="Thông tin người bán" showBack={true} />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         
         {/* Header section */}
@@ -86,6 +88,22 @@ export function SellerInfoView({ userId }: SellerInfoViewProps) {
               {user.address ? <Text style={styles.userSubText}>{user.address}</Text> : null}
             </View>
           </View>
+        </View>
+
+        <View style={styles.actionContainer}>
+          <Button
+            text={user.is_blocked ? "Bỏ chặn" : "Chặn người bán"}
+            variant={user.is_blocked ? "primary" : "secondary"}
+            onPress={async () => {
+              try {
+                const action = user.is_blocked ? 'unblock' : 'block';
+                await socialApi.blockUser({ user_id: userId, action });
+                setUser({ ...user, is_blocked: !user.is_blocked });
+              } catch (e) {
+                console.error("Error blocking/unblocking user", e);
+              }
+            }}
+          />
         </View>
 
       </ScrollView>
@@ -158,5 +176,9 @@ const styles = StyleSheet.create({
     fontSize: UI_CONFIG.typography.sizes.sm, 
     color: UI_CONFIG.colors.textSecondary, 
     marginTop: 4 
+  },
+  actionContainer: {
+    padding: UI_CONFIG.spacing.lg,
+    paddingTop: 0,
   }
 });

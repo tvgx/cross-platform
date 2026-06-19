@@ -23,6 +23,7 @@ import { ProductRepository } from '../../lib/repositories/ProductRepository';
 import { ProductHelper } from '../../lib/helpers/ProductHelper';
 import { ProductCard } from '../../components/product/ProductCard';
 import { SellerInfoCard } from '../../components/seller/SellerInfoCard';
+import { ProductReviews } from '../../components/product/ProductReviews';
 import { usersApi } from '../../lib/api/endpoints/users';
 export default function DetailScreen() {
   const router = useRouter();
@@ -299,11 +300,13 @@ export default function DetailScreen() {
             sellerName={product.seller_name}
             sellerAvatar={product.seller_avatar}
             onPressSeller={handlePressSeller}
-            onPressFollow={() => Alert.alert('Tính năng đang phát triển')}
-            onPressChat={() => Alert.alert('Tính năng đang phát triển')}
+            onPressChat={() => router.push({ pathname: '/(main)/chat/[id]', params: { id: product.seller_id } } as any)}
             onPressViewShop={() => router.push({ pathname: '/(main)/shop/[id]', params: { id: product.seller_id } } as any)}
           />
         )}
+
+        {/* Đánh giá sản phẩm */}
+        <ProductReviews productId={product.id} />
 
         {/* Sản phẩm liên quan */}
         {relatedProducts.length > 0 && (
